@@ -41,7 +41,6 @@ RUN apt-get update && apt-get install -y \
 # Copy the required installer files into the image
 COPY choregraphe-suite-2.5.10.7-linux64-setup.run /tmp/
 COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /tmp/
-
 # Install Choregraphe
 RUN rm -rf "/opt/Softbank Robotics" && \
     chmod +x /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run && \
@@ -55,9 +54,34 @@ RUN mv "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1" "/opt/Softba
 RUN useradd --create-home --shell /bin/bash pepperdev && usermod -aG sudo pepperdev && echo 'pepperdev ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Create a symlink to the Choregraphe installation directory
-USER root
 RUN ln -s "/opt/Softbank Robotics/Choregraphe Suite 2.5" /opt/choregraphe
 
+# Create the Choregraphe config file with the license key
+RUN mkdir -p /home/pepperdev/.config/"Aldebaran Robotics" && \
+    cat <<EOF > /home/pepperdev/.config/"Aldebaran Robotics"/Choregraphe.conf
+[General]
+LicenseKey=425d5117485d46585b4f44525a0d43575a4051595a03465144445b5950585559580b4c5b125f44455014515e5e5b09564055515d58
+LicenseValidation=465857475459425c5f514c50
+RecorderToolbar%3A%3Avisible=true
+ogreInitSucceeded=true
+showGettingStartedAtStartup=true
+
+[LogWidget]
+InfiniteLogging=false
+
+[MemoryKeyGrapheWidget]
+SamplingPeriodSec=1
+
+[Preferences]
+AutomaticProjectContentUpdateConflictResolutionAction=0
+AutomaticProjectContentUpdateConflictResolutionEnabled=false
+userBoxLibraries2=@Invalid()
+EOF
+
+# Change ownership of the user's home directory and the choregraphe link
+RUN chown -R pepperdev:pepperdev /home/pepperdev && chown -R pepperdev:pepperdev /opt/choregraphe
+
+# Switch to the non-root user
 USER pepperdev
 WORKDIR /home/pepperdev
 
