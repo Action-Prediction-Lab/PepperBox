@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y \
     libxtst6 \
     libxi6 \
     xkb-data \
+    libglu1-mesa \
+    avahi-daemon \
     # --- VNC and Desktop Dependencies ---
     tigervnc-standalone-server \
     novnc \
@@ -40,7 +42,8 @@ COPY choregraphe-suite-2.5.10.7-linux64-setup.run /tmp/
 COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /tmp/
 
 # Install Choregraphe
-RUN chmod +x /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+RUN rm -rf "/opt/Softbank Robotics" && \
+    chmod +x /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run && \
     printf '1\ny\n' | /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run
 
 # Fix the libz.so.1 library conflict
@@ -49,6 +52,11 @@ RUN mv "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1" "/opt/Softba
     
 # Create a non-root user to work in
 RUN useradd --create-home --shell /bin/bash pepperdev
+
+# Create a symlink to the Choregraphe installation directory
+USER root
+RUN ln -s "/opt/Softbank Robotics/Choregraphe Suite 2.5" /opt/choregraphe
+
 USER pepperdev
 WORKDIR /home/pepperdev
 
@@ -73,18 +81,10 @@ RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/
 # Set environment variable for the SDK
 ENV PYTHONPATH=/home/pepperdev/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages
 
-# --- START: CORRECTED VNC AND ENTRYPOINT SETUP ---
-# Expose the port that the web VNC client will listen on
-EXPOSE 6901
-
-# Create a startup script that launches VNC, the window manager, and Choregraphe
 RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
-    echo 'vncserver :1 -localhost no -xstartup /usr/bin/openbox' >> /home/pepperdev/entrypoint.sh && \
-    echo 'sleep 1' >> /home/pepperdev/entrypoint.sh && \
-    echo '/usr/bin/websockify -D --web=/usr/share/novnc/ 6901 localhost:5901' >> /home/pepperdev/entrypoint.sh && \
-    echo 'cd "/opt/Softbank Robotics/Choregraphe Suite 2.5" && DISPLAY=:1 ./choregraphe' >> /home/pepperdev/entrypoint.sh && \
+    echo 'service avahi-daemon start' >> /home/pepperdev/entrypoint.sh && \
+    echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
 # Set the default command to our new startup script
 CMD ["/home/pepperdev/entrypoint.sh"]
-# --- END: CORRECTED VNC AND ENTRYPOINT SETUP ---
