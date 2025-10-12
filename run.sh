@@ -11,9 +11,10 @@ else
     DOCKER_ARGS="--gpus all"
 fi
 
-docker run -it \
+docker run -it --rm \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     $DOCKER_ARGS \
     --name pepper-container \
+    --entrypoint /bin/bash \
     pepper-direct-env
