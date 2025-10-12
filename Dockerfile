@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     xkb-data \
     libglu1-mesa \
     avahi-daemon \
+    sudo \
     # --- VNC and Desktop Dependencies ---
     tigervnc-standalone-server \
     novnc \
@@ -51,7 +52,7 @@ RUN mv "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1" "/opt/Softba
     ln -s /lib/x86_64-linux-gnu/libz.so.1 "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1"
     
 # Create a non-root user to work in
-RUN useradd --create-home --shell /bin/bash pepperdev
+RUN useradd --create-home --shell /bin/bash pepperdev && usermod -aG sudo pepperdev && echo 'pepperdev ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Create a symlink to the Choregraphe installation directory
 USER root
@@ -82,9 +83,11 @@ RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/
 ENV PYTHONPATH=/home/pepperdev/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages
 
 RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
-    echo 'service avahi-daemon start' >> /home/pepperdev/entrypoint.sh && \
+    echo 'sudo /usr/sbin/avahi-daemon --daemonize' >> /home/pepperdev/entrypoint.sh && \
     echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
 # Set the default command to our new startup script
 CMD ["/home/pepperdev/entrypoint.sh"]
+
+
