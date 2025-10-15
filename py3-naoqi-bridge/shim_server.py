@@ -1,8 +1,22 @@
+#!/usr/bin/env python
 import sys
 import os
 from flask import Flask, request, jsonify
 from naoqi import ALProxy
 import json
+
+# Load environment variables from robot.env file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_file_path = os.path.join(script_dir, 'robot.env')
+try:
+    with open(env_file_path) as f:
+        for line in f:
+            if line.strip() and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                os.environ[key] = value
+    print("Loaded configuration from {}".format(env_file_path))
+except IOError:
+    print("robot.env file not found at {}. Using default or existing environment variables.".format(env_file_path))
 
 app = Flask(__name__)
 
