@@ -8,18 +8,21 @@ The `pynaoqi` SDK is only compatible with Python 2.7. This server runs in the Py
 
 ## How to Run the Server
 
-The server must be run from within the PepperBox Docker container. It requires two environment variables to be set to specify the IP address and port of the simulated (or real) robot.
+The server must be run from within the PepperBox Docker container. It reads the robot's IP address and port from a `robot.env` file in the same directory.
 
-1.  **Find the Robot IP and Port:** Open the Choregraphe application and find the connection details in the "Robot view". The port is often dynamic and changes each time Choregraphe is started.
+1.  **Create the `robot.env` file:** Create a file named `robot.env` in the `py3-naoqi-bridge` directory.
 
-2.  **Run the server:** Launch the server from the terminal, passing it the correct IP and Port.
+2.  **Add the robot's IP and port to the file:** Add the `NAOQI_IP` and `NAOQI_PORT` to the file, like this:
 
-    ```bash
-    NAOQI_IP=<robot_ip_address> NAOQI_PORT=<robot_port> python /home/pepperdev/apps/py3-naoqi-bridge/shim_server.py
     ```
-    For example:
+    NAOQI_IP=192.168.0.4
+    NAOQI_PORT=9559
+    ```
+
+3.  **Run the server:** Launch the server from the terminal.
+
     ```bash
-    NAOQI_IP=172.17.0.2 NAOQI_PORT=44677 python /home/pepperdev/apps/py3-naoqi-bridge/shim_server.py
+    python /home/pepperdev/apps/py3-naoqi-bridge/shim_server.py
     ```
 
 ## API Reference
