@@ -1,14 +1,22 @@
-from naoqi_proxy import NaoqiClient, NaoqiProxyError
+from ..naoqi_proxy import NaoqiClient, NaoqiProxyError
 
 if __name__ == "__main__":
     print("Testing the bridge by making the robot say 'Hello from Python 3' using the NaoqiClient proxy.")
-    
+
     client = NaoqiClient()
-    
+
     try:
         # Example: Make the robot say something
         client.ALTextToSpeech.say("Hello from Python 3")
         print("Request sent successfully.")
+
+        # Example: Get robot configuration
+        robot_config = client.ALMotion.getRobotConfig()
+        print(f"Robot configuration: {robot_config}")
+
+        # Example: Insert data into ALMemory
+        client.ALMemory.insertData("myKey", "myValue")
+        print("ALMemory.insertData successful.")
 
     except NaoqiProxyError as e:
         print(f"NAOqi Proxy Error: {e}")

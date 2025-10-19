@@ -10,7 +10,7 @@ The `pynaoqi` SDK is only compatible with Python 2.7. The Python 2.7 shim server
 
 *   **`shim_server.py`**: The Python 2.7 Flask server that exposes the NAOqi API via HTTP.
 *   **`naoqi_proxy.py`**: The Python 3 client library that provides a convenient interface to interact with the shim server.
-*   **`test_bridge.py`**: A basic example script demonstrating the usage of the `NaoqiClient`.
+*   **`examples/`**: Directory containing example scripts demonstrating the usage of the `NaoqiClient` (e.g., `basic_usage_example.py`, `helloworld_in_python3.py`).
 *   **`test_naoqi_proxy.py`**: A comprehensive test suite for the `naoqi_proxy` client.
 
 ## How to Run the Bridge
@@ -23,7 +23,7 @@ The shim server connects to the NAOqi instance using the IP address and port spe
 
 ```
 NAOQI_IP=127.0.0.1
-NAOQI_PORT=41703
+NAOQI_PORT=37647
 ```
 
 Replace `127.0.0.1` and `41703` with the actual IP address and port of your NAOqi instance.
