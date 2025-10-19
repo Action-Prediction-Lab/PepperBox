@@ -1,7 +1,7 @@
 import unittest
 import os
 import time
-from naoqi_proxy import NaoqiClient, NaoqiProxyError
+from ..naoqi_proxy import NaoqiClient, NaoqiProxyError
 
 # Assuming the shim server is running at localhost:5000
 # And the robot.env is configured correctly for the shim server

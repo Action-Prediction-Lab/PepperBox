@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     libglu1-mesa \
     avahi-daemon \
     sudo \
+    tree \
     # --- VNC and Desktop Dependencies ---
     tigervnc-standalone-server \
     novnc \

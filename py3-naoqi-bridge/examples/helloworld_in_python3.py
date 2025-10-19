@@ -1,4 +1,4 @@
-from naoqi_proxy import NaoqiClient, NaoqiProxyError
+from ..naoqi_proxy import NaoqiClient, NaoqiProxyError
 
 try:
     client = NaoqiClient()
