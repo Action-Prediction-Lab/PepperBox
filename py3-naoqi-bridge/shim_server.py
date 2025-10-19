@@ -18,6 +18,18 @@ try:
 except IOError:
     print("robot.env file not found at {}. Using default or existing environment variables.".format(env_file_path))
 
+def _encode_strings_for_json(obj):
+    print("DEBUG: _encode_strings_for_json received type: {}, value: {}".format(type(obj), obj))
+    if isinstance(obj, (str, unicode)):
+        encoded_obj = obj.encode('utf-8')
+        print("DEBUG: _encode_strings_for_json encoded string to: {}".format(encoded_obj))
+        return encoded_obj
+    elif isinstance(obj, list):
+        return [_encode_strings_for_json(elem) for elem in obj]
+    elif isinstance(obj, dict):
+        return {key: _encode_strings_for_json(value) for key, value in obj.items()}
+    return obj
+
 app = Flask(__name__)
 
 # Read IP and Port from environment variables, with defaults
@@ -59,7 +71,9 @@ def call_naoqi_method():
         result = method_to_call(*encoded_args, **kwargs)
         print("Method call successful. Result: {}".format(result))
 
-        return jsonify({"result": result})
+        # Encode any unicode strings in the result for proper JSON serialization
+        json_compatible_result = _encode_strings_for_json(result)
+        return jsonify({"result": json_compatible_result})
 
     except Exception as e:
         # Log the full exception to stderr for debugging
