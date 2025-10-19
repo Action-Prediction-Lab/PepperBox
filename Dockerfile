@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     libglu1-mesa \
     avahi-daemon \
     sudo \
+    tree \
     # --- VNC and Desktop Dependencies ---
     tigervnc-standalone-server \
     novnc \
@@ -98,7 +99,11 @@ RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 # Install Python 2.7.18 and set it as the default
 RUN eval "$(pyenv init -)" && \
     pyenv install 2.7.18 && \
-    pyenv global 2.7.18
+    pyenv global 2.7.18 && \
+    pip install flask
+
+# Copy the bridge code
+# COPY py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
 # Install the pynaoqi SDK
 RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/
@@ -111,7 +116,11 @@ RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
     echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
+# Expose the port for the shim server
+EXPOSE 5000
+
 # Set the default command to our new startup script
 CMD ["/home/pepperdev/entrypoint.sh"]
+
 
 
