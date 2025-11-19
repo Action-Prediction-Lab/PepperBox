@@ -3,7 +3,6 @@ import sys
 import os
 from flask import Flask, request, jsonify
 from naoqi import ALProxy
-import json
 
 # Load environment variables from robot.env file
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,16 +17,45 @@ try:
 except IOError:
     print("robot.env file not found at {}. Using default or existing environment variables.".format(env_file_path))
 
-def _encode_strings_for_json(obj):
-    print("DEBUG: _encode_strings_for_json received type: {}, value: {}".format(type(obj), obj))
-    if isinstance(obj, (str, unicode)):
-        encoded_obj = obj.encode('utf-8')
-        print("DEBUG: _encode_strings_for_json encoded string to: {}".format(encoded_obj))
-        return encoded_obj
-    elif isinstance(obj, list):
-        return [_encode_strings_for_json(elem) for elem in obj]
-    elif isinstance(obj, dict):
-        return {key: _encode_strings_for_json(value) for key, value in obj.items()}
+def _deep_encode_to_str(obj):
+    """
+    Recursively traverses a data structure and encodes unicode strings to utf-8 byte strings (str).
+    This is necessary before passing data to the Naoqi C++ bindings.
+    """
+    if isinstance(obj, unicode):
+        return obj.encode('utf-8')
+    if isinstance(obj, list):
+        return [_deep_encode_to_str(elem) for elem in obj]
+    if isinstance(obj, tuple):
+        return tuple(_deep_encode_to_str(elem) for elem in obj)
+    if isinstance(obj, dict):
+        return {
+            _deep_encode_to_str(key): _deep_encode_to_str(value)
+            for key, value in obj.items()
+        }
+    return obj
+
+def _deep_decode_to_unicode(obj):
+    """
+    Recursively traverses a data structure and decodes byte strings (str) to unicode strings.
+    This is necessary for correct JSON serialization of the result.
+    """
+    if isinstance(obj, str):
+        try:
+            return obj.decode('utf-8')
+        except UnicodeDecodeError:
+            # If it's not valid utf-8, return the original string.
+            # This can happen with binary data.
+            return obj
+    if isinstance(obj, list):
+        return [_deep_decode_to_unicode(elem) for elem in obj]
+    if isinstance(obj, tuple):
+        return tuple(_deep_decode_to_unicode(elem) for elem in obj)
+    if isinstance(obj, dict):
+        return {
+            _deep_decode_to_unicode(key): _deep_decode_to_unicode(value)
+            for key, value in obj.items()
+        }
     return obj
 
 app = Flask(__name__)
@@ -52,7 +80,7 @@ def call_naoqi_method():
     args = data.get("args", [])
     kwargs = data.get("kwargs", {})
 
-    # Naoqi's C++ bindings expect byte strings (str), not unicode. Convert before calling.
+    # Naoqi's C++ bindings expect byte strings (str), not unicode.
     py2_module_name = module_name.encode('utf-8')
     py2_robot_ip = str(ROBOT_IP)
 
@@ -63,16 +91,18 @@ def call_naoqi_method():
         print("Successfully created proxy to '{}'".format(module_name))
 
         method_to_call = getattr(proxy, method_name)
-        print("Calling method '{}' with args: {} and kwargs: {}".format(method_name, args, kwargs))
 
-        # The naoqi C++ library expects byte strings (str) for arguments, not unicode.
-        # We encode any unicode strings in the args list before calling the method.
-        encoded_args = [arg.encode('utf-8') if isinstance(arg, unicode) else arg for arg in args]
-        result = method_to_call(*encoded_args, **kwargs)
+        # Recursively encode all unicode strings in args and kwargs to byte strings (str)
+        encoded_args = _deep_encode_to_str(args)
+        encoded_kwargs = _deep_encode_to_str(kwargs)
+
+        print("Calling method '{}' with encoded args: {} and kwargs: {}".format(method_name, encoded_args, encoded_kwargs))
+
+        result = method_to_call(*encoded_args, **encoded_kwargs)
         print("Method call successful. Result: {}".format(result))
 
-        # Encode any unicode strings in the result for proper JSON serialization
-        json_compatible_result = _encode_strings_for_json(result)
+        # Recursively decode the result back to unicode for proper JSON serialization
+        json_compatible_result = _deep_decode_to_unicode(result)
         return jsonify({"result": json_compatible_result})
 
     except Exception as e:
