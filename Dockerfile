@@ -103,7 +103,7 @@ RUN eval "$(pyenv init -)" && \
     pip install flask
 
 # Copy the bridge code
-# COPY py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
+COPY py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
 # Install the pynaoqi SDK
 RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/
