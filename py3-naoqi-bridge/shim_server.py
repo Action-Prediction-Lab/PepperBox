@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 import sys
 import os
+import threading
 from flask import Flask, request, jsonify
 from naoqi import ALProxy
-import json
 
-# Load environment variables from robot.env file
+# --- Thread-Safety Fix ---
+# A lock to make the global PROXY_CACHE thread-safe
+PROXY_LOCK = threading.Lock()
+
+# --- Configuration ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
 env_file_path = os.path.join(script_dir, 'robot.env')
 try:
@@ -13,72 +17,100 @@ try:
         for line in f:
             if line.strip() and not line.startswith('#'):
                 key, value = line.strip().split('=', 1)
-                os.environ[key] = value
+                # Only load from file if NOT already set in environment (Docker priority)
+                if key not in os.environ:
+                    os.environ[key] = value
     print("Loaded configuration from {}".format(env_file_path))
 except IOError:
-    print("robot.env file not found at {}. Using default or existing environment variables.".format(env_file_path))
-
-def _encode_strings_for_json(obj):
-    print("DEBUG: _encode_strings_for_json received type: {}, value: {}".format(type(obj), obj))
-    if isinstance(obj, (str, unicode)):
-        encoded_obj = obj.encode('utf-8')
-        print("DEBUG: _encode_strings_for_json encoded string to: {}".format(encoded_obj))
-        return encoded_obj
-    elif isinstance(obj, list):
-        return [_encode_strings_for_json(elem) for elem in obj]
-    elif isinstance(obj, dict):
-        return {key: _encode_strings_for_json(value) for key, value in obj.items()}
-    return obj
+    print("robot.env file not found. Using defaults.")
 
 app = Flask(__name__)
 
-# Read IP and Port from environment variables, with defaults
 ROBOT_IP = os.getenv("NAOQI_IP", "127.0.0.1")
 ROBOT_PORT = int(os.getenv("NAOQI_PORT", 9559))
 
+# --- PERFORMANCE FIX: Global Proxy Cache ---
+# This prevents re-connecting 1000 times per second
+PROXY_CACHE = {}
+
+def get_proxy(module_name):
+    with PROXY_LOCK:
+        global PROXY_CACHE
+        if module_name in PROXY_CACHE:
+            return PROXY_CACHE[module_name]
+        
+        # Create new connection only if needed
+        py2_module_name = module_name.encode('utf-8')
+        py2_robot_ip = str(ROBOT_IP)
+        
+        print("Creating new ALProxy connection to '{}'...".format(py2_module_name))
+        try:
+            proxy = ALProxy(py2_module_name, py2_robot_ip, ROBOT_PORT)
+            PROXY_CACHE[module_name] = proxy
+            return proxy
+        except Exception as e:
+            print("Failed to create proxy: {}".format(e))
+            raise e
+
+def _deep_encode_to_str(obj):
+    if isinstance(obj, unicode): return obj.encode('utf-8')
+    if isinstance(obj, list): return [_deep_encode_to_str(e) for e in obj]
+    if isinstance(obj, tuple): return tuple(_deep_encode_to_str(e) for e in obj)
+    if isinstance(obj, dict): return {_deep_encode_to_str(k): _deep_encode_to_str(v) for k, v in obj.items()}
+    return obj
+
+def _deep_decode_to_unicode(obj):
+    if isinstance(obj, str):
+        try: return obj.decode('utf-8')
+        except: return obj
+    if isinstance(obj, list): return [_deep_decode_to_unicode(e) for e in obj]
+    if isinstance(obj, tuple): return tuple(_deep_decode_to_unicode(e) for e in obj)
+    if isinstance(obj, dict): return {_deep_decode_to_unicode(k): _deep_decode_to_unicode(v) for k, v in obj.items()}
+    return obj
+
 @app.route("/api/call", methods=["POST"])
 def call_naoqi_method():
-    print("---")
-    print("Received request at /api/call")
     data = request.get_json()
-    print("Request data: {}".format(data))
-
-    if not all(k in data for k in ["module", "method"]):
-        print("Invalid request payload")
-        return jsonify({"error": "Invalid request payload, 'module' and 'method' are required."}), 400
+    if not data or "module" not in data or "method" not in data:
+        return jsonify({"error": "Invalid request"}), 400
 
     module_name = data["module"]
     method_name = data["method"]
     args = data.get("args", [])
     kwargs = data.get("kwargs", {})
 
-    # Naoqi's C++ bindings expect byte strings (str), not unicode. Convert before calling.
-    py2_module_name = module_name.encode('utf-8')
-    py2_robot_ip = str(ROBOT_IP)
-
-    print("Attempting to connect to naoqi module '{}' at {}:{}".format(py2_module_name, py2_robot_ip, ROBOT_PORT))
-
     try:
-        proxy = ALProxy(py2_module_name, py2_robot_ip, ROBOT_PORT)
-        print("Successfully created proxy to '{}'".format(module_name))
+        # 1. Get Cached Proxy (Fast!)
+        proxy = get_proxy(module_name)
 
-        method_to_call = getattr(proxy, method_name)
-        print("Calling method '{}' with args: {} and kwargs: {}".format(method_name, args, kwargs))
+        # 2. Handle 'post' or standard calls
+        if method_name == "post":
+            if not args:
+                raise ValueError("post requires method name as first arg")
+            
+            target_method = args[0]
+            if isinstance(target_method, unicode): target_method = target_method.encode('utf-8')
+            
+            real_args = args[1:]
+            
+            post_proxy = getattr(proxy, "post")
+            method_to_call = getattr(post_proxy, target_method)
+            encoded_args = _deep_encode_to_str(real_args)
+            
+            result = method_to_call(*encoded_args, **_deep_encode_to_str(kwargs))
+        
+        else:
+            method_to_call = getattr(proxy, method_name)
+            encoded_args = _deep_encode_to_str(args)
+            result = method_to_call(*encoded_args, **_deep_encode_to_str(kwargs))
 
-        # The naoqi C++ library expects byte strings (str) for arguments, not unicode.
-        # We encode any unicode strings in the args list before calling the method.
-        encoded_args = [arg.encode('utf-8') if isinstance(arg, unicode) else arg for arg in args]
-        result = method_to_call(*encoded_args, **kwargs)
-        print("Method call successful. Result: {}".format(result))
-
-        # Encode any unicode strings in the result for proper JSON serialization
-        json_compatible_result = _encode_strings_for_json(result)
-        return jsonify({"result": json_compatible_result})
+        return jsonify({"result": _deep_decode_to_unicode(result)})
 
     except Exception as e:
-        # Log the full exception to stderr for debugging
-        sys.stderr.write("!!! An exception occurred: {} !!!\n".format(e))
+        sys.stderr.write("Error calling {}.{}: {}\n".format(module_name, method_name, e))
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # threaded=True is required for concurrent requests
+    app.run(host="0.0.0.0", port=5000, threaded=True)
+
