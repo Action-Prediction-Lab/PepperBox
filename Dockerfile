@@ -33,24 +33,27 @@ RUN apt-get update && apt-get install -y \
     sudo \
     tree \
     # --- VNC and Desktop Dependencies ---
+    # --- VNC and Desktop Dependencies ---
     tigervnc-standalone-server \
     novnc \
     websockify \
     openbox \
-    && apt-get clean
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy the required installer files into the image
 COPY choregraphe-suite-2.5.10.7-linux64-setup.run /tmp/
 COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /tmp/
-# Install Choregraphe
+
+# Install Choregraphe and clean up installer
 RUN rm -rf "/opt/Softbank Robotics" && \
     chmod +x /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run && \
-    printf '1\ny\n' | /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run
+    printf '1\ny\n' | /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+    rm /tmp/choregraphe-suite-2.5.10.7-linux64-setup.run
 
 # Fix the libz.so.1 library conflict
 RUN mv "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1" "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1.old" && \
     ln -s /lib/x86_64-linux-gnu/libz.so.1 "/opt/Softbank Robotics/Choregraphe Suite 2.5/lib/libz.so.1"
-    
+
 # Create a non-root user to work in
 RUN useradd --create-home --shell /bin/bash pepperdev && usermod -aG sudo pepperdev && echo 'pepperdev ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
@@ -103,10 +106,11 @@ RUN eval "$(pyenv init -)" && \
     pip install flask
 
 # Copy the bridge code
-COPY py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
+COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
-# Install the pynaoqi SDK
-RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/
+# Install the pynaoqi SDK and clean up tarball
+RUN tar -xvf /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /home/pepperdev/ && \
+    sudo rm /tmp/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz
 
 # Set environment variable for the SDK
 ENV PYTHONPATH=/home/pepperdev/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages
