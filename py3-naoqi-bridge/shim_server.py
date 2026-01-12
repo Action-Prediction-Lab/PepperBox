@@ -12,7 +12,8 @@ try:
         for line in f:
             if line.strip() and not line.startswith('#'):
                 key, value = line.strip().split('=', 1)
-                os.environ[key] = value
+                if key not in os.environ:
+                    os.environ[key] = value
     print("Loaded configuration from {}".format(env_file_path))
 except IOError:
     print("robot.env file not found at {}. Using default or existing environment variables.".format(env_file_path))
