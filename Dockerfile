@@ -117,6 +117,7 @@ ENV PYTHONPATH=/home/pepperdev/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/s
 
 RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
     echo 'sudo /usr/sbin/avahi-daemon --daemonize' >> /home/pepperdev/entrypoint.sh && \
+    echo 'python /home/pepperdev/py3-naoqi-bridge/shim_server.py &' >> /home/pepperdev/entrypoint.sh && \
     echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
