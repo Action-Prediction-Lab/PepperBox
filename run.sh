@@ -13,11 +13,11 @@ else
 fi
 
 docker run -it --rm \
+    --net=host \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v $(pwd)/py3-naoqi-bridge:/home/pepperdev/apps/py3-naoqi-bridge \
-    -p 5000:5000 \
     $DOCKER_ARGS \
     --name pepper-container \
     --entrypoint /bin/bash \
-    pepper-direct-env
+    pepper-box:01-26-latest
