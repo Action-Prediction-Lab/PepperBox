@@ -1,11 +1,10 @@
 # PepperBox
 
-This repository contains a Dockerized environment for developing applications for Aldebaran's NAO and Pepper robots, using Choregraphe and the `pynaoqi` Python SDK.
+This repository contains a Dockerised environment for developing applications for Aldebaran's NAO and Pepper robots, with the `pynaoqi` Python SDK, with the `qiBullet` simulator.
 
 ## Prerequisites
 
 - Docker
-- NVIDIA GPU with the latest drivers (for hardware acceleration)
 
 ## Build the Docker Image
 
@@ -25,17 +24,25 @@ To start an interactive session in the container with host networking (required 
 
 This will:
 1.  Start the container with `--net=host`.
-2.  Launch the `entrypoint.sh` which starts the `shim_server` (Flask app) on port 5000.
-3.  Start `avahi-daemon` and `choregraphe`.
+2.  Launch the `shim_server` (Flask app) on port 5000.
 
-### Connecting to the Shim Server
-
-The shim server listens on port 5000.
-By default, it connects to the physical robot at `127.0.0.1:9559` (inside the container) or `192.168.0.4:9559`.
-You can override this by setting environment variables before running:
+### First Time Setup (Simulation)
+**Important**: Before running the simulation, you must install the proprietary robot assets:
 
 ```bash
-export NAOQI_IP=127.0.0.1
-export NAOQI_PORT=43175
-./run.sh
+# Inside the container
+python3 src/setup_wizard.py
 ```
+This wizard will download the required meshes from Softbank Robotics after you accept the license.
+
+### Running the Simulator
+Once setup is complete, you can launch the simulation server:
+
+```bash
+python3 src/shim_server.py
+```
+
+### Connection Details
+The shim server listens on **port 5000**.
+It exposes the `Naoqi` API (proxy) to control the simulated robot using `qibullet`.
+
