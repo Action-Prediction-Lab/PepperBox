@@ -21,7 +21,7 @@ except IOError:
 ROBOT_IP = os.getenv("NAOQI_IP", "127.0.0.1")
 ROBOT_PORT = int(os.getenv("NAOQI_PORT", 9559))
 ZMQ_PORT = 5559
-FPS = 10 # Target FPS
+FPS = 30 # Target FPS
 
 def main():
     print("Starting Video Streamer...")
@@ -56,12 +56,17 @@ def main():
     print("Streaming video on port TCP/{} at {} FPS...".format(ZMQ_PORT, FPS))
     
     try:
+        frame_count = 0
+        last_report_time = time.time()
         while True:
             start_time = time.time()
             
             # Get Image
             # [width, height, layers, colorSpace, timeStamp, binaryImage, cameraID, leftAngle, topAngle, rightAngle, bottomAngle]
             nao_image = video_proxy.getImageRemote(video_client)
+            
+            # FPS Calculation (Debug only)
+            # Source is limited to ~4-5 FPS by hardware
             
             if nao_image:
                 img_data = nao_image[6]
