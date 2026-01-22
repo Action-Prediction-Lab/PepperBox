@@ -26,7 +26,17 @@ This will:
 1.  Start the container with `--net=host`.
 2.  Launch the `shim_server` (Flask app) on port 5000.
 
-### First Time Setup (Simulation)
+### Connection Details
+The shim server listens on **port 5000**.
+It exposes the `Naoqi` API (proxy) to control the simulated robot using `qibullet`.
+
+By default, it is configured to listen for commands that it proxies to the simulator.
+
+## Simulation (Optional)
+
+If you wish to run the **qibullet** simulator inside the container, follow these steps.
+
+### 1. First Time Setup
 **Important**: Before running the simulation, you must install the proprietary robot assets:
 
 ```bash
@@ -35,14 +45,9 @@ python3 src/setup_wizard.py
 ```
 This wizard will download the required meshes from Softbank Robotics after you accept the license.
 
-### Running the Simulator
+### 2. Running the Simulator
 Once setup is complete, you can launch the simulation server:
 
 ```bash
 python3 src/shim_server.py
 ```
-
-### Connection Details
-The shim server listens on **port 5000**.
-It exposes the `Naoqi` API (proxy) to control the simulated robot using `qibullet`.
-
