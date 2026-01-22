@@ -16,7 +16,7 @@ docker build -t jwgcurrie/pepper-box:01-26-latest .
 
 ## Run the Container
 
-To start an interactive session in the container with host networking (required for easy connection to Choregraphe on the host):
+To start an interactive session in the container with host networking:
 
 ```bash
 ./run.sh
@@ -27,14 +27,16 @@ This will:
 2.  Launch the `shim_server` (Flask app) on port 5000.
 
 ### Connection Details
-The shim server listens on **port 5000**.
-It exposes the `Naoqi` API (proxy) to control the simulated robot using `qibullet`.
+The **Shim Server** acts as a bridge between your Python 3 code and the robot. It exposes a JSON API on **port 5000**.
 
-By default, it is configured to listen for commands that it proxies to the simulator.
+*   **Endpoint**: `http://localhost:5000/api/call`
+*   **Method**: `POST`
+*   **Payload**: `{"module": "ALMotion", "method": "move", "args": [...]}`
+
+The server proxies these commands to the active backend (either the `qiBullet` simulator or the physical robot via `pynaoqi`).
 
 ## Simulation (Optional)
-
-If you wish to run the **qibullet** simulator inside the container, follow these steps.
+If you wish to run the **qibullet** simulator inside the container:
 
 ### 1. First Time Setup
 **Important**: Before running the simulation, you must install the proprietary robot assets:
