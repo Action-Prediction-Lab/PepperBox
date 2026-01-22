@@ -120,7 +120,7 @@ RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
     echo 'sudo /usr/sbin/avahi-daemon --daemonize' >> /home/pepperdev/entrypoint.sh && \
     echo '/home/pepperdev/.pyenv/versions/2.7.18/bin/python /home/pepperdev/py3-naoqi-bridge/shim_server.py &' >> /home/pepperdev/entrypoint.sh && \
     echo '/home/pepperdev/.pyenv/versions/2.7.18/bin/python /home/pepperdev/py3-naoqi-bridge/video_streamer.py &' >> /home/pepperdev/entrypoint.sh && \
-    echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
+    echo 'tail -f /dev/null' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
 # Expose the port for the shim server
