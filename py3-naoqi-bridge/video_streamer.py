@@ -1,12 +1,23 @@
-#!/usr/bin/env python
-import sys
 import os
+import sys
 import time
 import zmq
 import vision_definitions
 from naoqi import ALProxy
 
-# --- Configuration ---
+# --- Configuration Loader ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_file_path = os.path.join(script_dir, 'robot.env')
+try:
+    with open(env_file_path) as f:
+        for line in f:
+            if line.strip() and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                os.environ[key] = value
+    print("Loaded configuration from {}".format(env_file_path))
+except IOError:
+    print("robot.env file not found. Using environment variables.")
+
 ROBOT_IP = os.getenv("NAOQI_IP", "127.0.0.1")
 ROBOT_PORT = int(os.getenv("NAOQI_PORT", 9559))
 ZMQ_PORT = 5559
@@ -30,7 +41,7 @@ def main():
     # Subscribe to Camera
     # Resolution: 2 = VGA (640x480), 1 = QVGA (320x240)
     # ColorSpace: 11 = RGB, 13 = BGR
-    resolution = vision_definitions.kqvga 
+    resolution = vision_definitions.kQVGA 
     color_space = vision_definitions.kRGBColorSpace
     
     client_name = "zmq_streamer_{}".format(int(time.time()))
