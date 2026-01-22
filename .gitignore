@@ -2,3 +2,5 @@ Dockerfile.backup
 Dockerfile.backup.backup
 py3-naoqi-bridge/robot.env
 __pycache__/
+*.run
+*.tar.gz
