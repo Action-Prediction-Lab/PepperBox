@@ -25,10 +25,27 @@ ENV LC_ALL=en_US.UTF-8
 # Install Python packages
 # qibullet pulls in pybullet, numpy, cv2, etc.
 # flask for the shim server
+# Install Python packages
+# qibullet pulls in pybullet, numpy, cv2, etc.
+# flask for the shim server
 RUN pip3 install --no-cache-dir \
     qibullet \
     flask \
     numpy
+
+# --- Legacy Support for Physical Robot (Python 2.7) ---
+RUN apt-get install -y python2 curl && \
+    curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py && \
+    python2 get-pip.py && \
+    python2 -m pip install flask requests
+
+# Setup pynaoqi SDK
+COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /opt/
+RUN tar -xzf /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /opt/ && \
+    rm /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz
+
+# Add pynaoqi to PYTHONPATH for Python 2
+ENV PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages"
 
 # Create app directory
 WORKDIR /home/pepperdev
