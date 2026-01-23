@@ -16,40 +16,38 @@ docker build -t jwgcurrie/pepper-box:01-26-latest .
 
 ## Run the Container
 
-To start an interactive session in the container with host networking:
+## Run the Container
+
+To start the environment:
 
 ```bash
 ./run.sh
 ```
 
-This will:
-1.  Start the container with `--net=host`.
-2.  Launch the `shim_server` (Flask app) on port 5000.
+The container uses `entrypoint.sh` to automatically select the mode:
+
+1.  **Simulation Mode (Default)**:
+    *   If `NAOQI_IP` is unset or `localhost`, it launches **qibullet** (Python 3).
+    *   Requires `python3 src/setup_wizard.py` to be run once.
+
+2.  **Physical Robot Mode**:
+    *   If `NAOQI_IP` is set to a remote address (e.g., Robot IP), it launches the **pynaoqi bridge** (Python 2).
+    *   Example:
+        ```bash
+        export NAOQI_IP=192.168.1.100
+        ./run.sh
+        ```
 
 ### Connection Details
-The **Shim Server** acts as a bridge between your Python 3 code and the robot. It exposes a JSON API on **port 5000**.
+The **Shim Server** (port 5000) is your unified endpoint.
+*   **Simulation**: Proxies to internal qibullet.
+*   **Physical**: Proxies to the real robot via `pynaoqi`.
 
-*   **Endpoint**: `http://localhost:5000/api/call`
-*   **Method**: `POST`
-*   **Payload**: `{"module": "ALMotion", "method": "move", "args": [...]}`
+Your client code (Python 3) does not need to know the difference.
 
-The server proxies these commands to the active backend (either the `qiBullet` simulator or the physical robot via `pynaoqi`).
-
-## Simulation (Optional)
-If you wish to run the **qibullet** simulator inside the container:
-
-### 1. First Time Setup
-**Important**: Before running the simulation, you must install the proprietary robot assets:
-
+### First Time Setup (Simulation Only)
+If utilizing the simulator, you must install assets once:
 ```bash
-# Inside the container
+# Inside container
 python3 src/setup_wizard.py
-```
-This wizard will download the required meshes from Softbank Robotics after you accept the license.
-
-### 2. Running the Simulator
-Once setup is complete, you can launch the simulation server:
-
-```bash
-python3 src/shim_server.py
 ```

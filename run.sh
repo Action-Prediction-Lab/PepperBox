@@ -30,4 +30,5 @@ docker run -it --rm \
     -v $(pwd)/.qibullet:/root/.qibullet \
     $DOCKER_ARGS \
     --name pepper-qibullet \
-    webots-pepper:latest
+    webots-pepper:latest \
+    /home/pepperdev/entrypoint.sh
