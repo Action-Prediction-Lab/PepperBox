@@ -105,12 +105,37 @@ def main():
                 
                 # Send via ZMQ
                 # Topic: "video", Data: raw bytes
-                socket.send_multipart(["video", img_data])
+                # OPTIMIZATION: Extract Y channel only (Greyscale)
+                # Check for YUYV (153600) vs Already Greyscale (76800)
+                if len(img_data) == 153600:
+                    # YUYV (2 bytes/px) -> Extract Y (Index 0, 2...)
+                    y_channel = img_data[0::2]
+                elif len(img_data) == 76800:
+                    # Already 1 byte/px (Y-only or similar) -> Send as is
+                    y_channel = img_data
+                elif len(img_data) == 38400:
+                     # QQVGA YUYV (160x120 * 2) -> Extract Y
+                     y_channel = img_data[0::2]
+                elif len(img_data) == 19200:
+                     # QQVGA Y-only -> Send as is
+                     y_channel = img_data
+                else:
+                    # Fallback
+                    y_channel = img_data
+                
+                # Send via ZMQ
+                # Topic: "video", Data: Y-channel bytes
+                socket.send_multipart(["video", y_channel])
                 
             # Sleep to maintain FPS
             elapsed = time.time() - start_time
             if elapsed < 1.0 / FPS:
                 time.sleep((1.0 / FPS) - elapsed)
+                
+            # Log periodic stats
+            if frame_count % 30 == 0:
+                print("Streamer FPS: {:.1f}".format(30.0 / (time.time() - last_report_time)))
+                last_report_time = time.time()
                 
     except KeyboardInterrupt:
         print("Interrupted")
