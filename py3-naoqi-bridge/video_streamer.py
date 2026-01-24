@@ -2,7 +2,10 @@ import os
 import sys
 import time
 import zmq
+import zmq
+import struct
 import vision_definitions
+import struct
 from naoqi import ALProxy
 
 # --- Configuration Loader ---
@@ -29,8 +32,9 @@ def main():
     # Connect to NaoQi
     try:
         video_proxy = ALProxy("ALVideoDevice", ROBOT_IP, ROBOT_PORT)
+        motion_proxy = ALProxy("ALMotion", ROBOT_IP, ROBOT_PORT)
     except Exception as e:
-        print("Error connecting to ALVideoDevice: {}".format(e))
+        print("Error connecting to Proxies: {}".format(e))
         sys.exit(1)
         
     # Setup ZMQ
@@ -124,8 +128,20 @@ def main():
                     y_channel = img_data
                 
                 # Send via ZMQ
-                # Topic: "video", Data: Y-channel bytes
-                socket.send_multipart(["video", y_channel])
+                # Topic: "video", Data: Timestamp (d) + Image Bytes
+                # NaoQi timestamp is [seconds, microseconds]
+                # ts_sec = nao_image[4]
+                # ts_micro = nao_image[5]
+                # timestamp = float(ts_sec) + float(ts_micro) / 1000000.0
+                
+                # CRITICAL FIX: NaoQi returns Uptime, Proprioception uses Epoch.
+                # We overwrite with system time to ensure sync.
+                timestamp = time.time()
+                
+                # Header: timestamp (double)
+                header = struct.pack('d', timestamp)
+                
+                socket.send_multipart(["video", header, y_channel])
                 
             # Sleep to maintain FPS
             elapsed = time.time() - start_time
