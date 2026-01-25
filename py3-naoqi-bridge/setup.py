@@ -6,7 +6,10 @@ setup(
     packages=find_packages(),
     py_modules=["naoqi_proxy"],
     install_requires=[
-        "requests"
+        "requests",
+        "pyzmq",
+        "numpy",
+        "opencv-python-headless" # headless for server environments
     ],
     description="Python 3 bridge client for Naoqi",
 )
