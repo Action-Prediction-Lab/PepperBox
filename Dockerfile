@@ -103,7 +103,8 @@ RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 RUN eval "$(pyenv init -)" && \
     pyenv install 2.7.18 && \
     pyenv global 2.7.18 && \
-    pip install flask
+    pip install flask "pyzmq<20" && \
+    pyenv rehash
 
 # Copy the bridge code
 COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
@@ -117,8 +118,9 @@ ENV PYTHONPATH=/home/pepperdev/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/s
 
 RUN echo '#!/bin/bash' > /home/pepperdev/entrypoint.sh && \
     echo 'sudo /usr/sbin/avahi-daemon --daemonize' >> /home/pepperdev/entrypoint.sh && \
-    echo 'python /home/pepperdev/py3-naoqi-bridge/shim_server.py &' >> /home/pepperdev/entrypoint.sh && \
-    echo '/opt/choregraphe/choregraphe' >> /home/pepperdev/entrypoint.sh && \
+    echo '/home/pepperdev/.pyenv/versions/2.7.18/bin/python /home/pepperdev/py3-naoqi-bridge/shim_server.py &' >> /home/pepperdev/entrypoint.sh && \
+    echo '/home/pepperdev/.pyenv/versions/2.7.18/bin/python /home/pepperdev/py3-naoqi-bridge/video_streamer.py &' >> /home/pepperdev/entrypoint.sh && \
+    echo 'tail -f /dev/null' >> /home/pepperdev/entrypoint.sh && \
     chmod +x /home/pepperdev/entrypoint.sh
 
 # Expose the port for the shim server
