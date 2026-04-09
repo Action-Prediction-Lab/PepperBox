@@ -27,7 +27,7 @@ docker run -it --rm \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v $(pwd)/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge \
     -v $(pwd)/src:/home/pepperdev/src \
-    -v $(pwd)/.qibullet:/root/.qibullet \
+    -v $(pwd)/.qibullet:/home/pepperdev/.qibullet \
     $DOCKER_ARGS \
     --name pepper-qibullet \
     pepper-box:latest \

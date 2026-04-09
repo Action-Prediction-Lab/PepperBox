@@ -13,7 +13,7 @@ def setup():
     print("="*60)
     
     # 1. Force Clean Check
-    qibullet_root = "/root/.qibullet"
+    qibullet_root = os.path.join(os.path.expanduser("~"), ".qibullet")
     print(f"Checking {qibullet_root}...")
     if os.path.exists(qibullet_root):
         print(f"Found existing qibullet folder (Docker Volume).")
