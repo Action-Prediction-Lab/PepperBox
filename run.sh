@@ -24,6 +24,8 @@ docker run -it --rm \
     --net=host \
     --privileged \
     -e DISPLAY=$DISPLAY \
+    -e NAOQI_IP=${NAOQI_IP:-"127.0.0.1"} \
+    -e NAOQI_PORT=${NAOQI_PORT:-9559} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v $(pwd)/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge \
     -v $(pwd)/src:/home/pepperdev/src \
