@@ -31,10 +31,11 @@ RUN pip3 install --no-cache-dir \
     numpy
 
 # --- Legacy Support for Physical Robot (Python 2.7) ---
-RUN apt-get install -y python2 curl && \
+RUN apt-get update && apt-get install -y python2 curl && \
     curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py && \
     python2 get-pip.py && \
-    python2 -m pip install flask requests
+    python2 -m pip install flask requests && \
+    rm -rf /var/lib/apt/lists/*
 
 # Setup pynaoqi SDK
 COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /opt/
@@ -44,14 +45,16 @@ RUN tar -xzf /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /opt/ && \
 # Add pynaoqi to PYTHONPATH for Python 2
 ENV PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages"
 
-# Create app directory
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash pepperdev
+USER pepperdev
 WORKDIR /home/pepperdev
 
 # Copy Bridge Code
-COPY py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
+COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
 # Copy Simulation Code
-COPY src /home/pepperdev/src
+COPY --chown=pepperdev:pepperdev src /home/pepperdev/src
 
 # Set PYTHONPATH so python can find the modules in src/ if needed, 
 # though we will run them directly.
