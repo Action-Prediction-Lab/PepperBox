@@ -56,6 +56,9 @@ COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-brid
 # Copy Simulation Code
 COPY --chown=pepperdev:pepperdev src /home/pepperdev/src
 
+# Copy Entrypoint
+COPY --chown=pepperdev:pepperdev entrypoint.sh /home/pepperdev/entrypoint.sh
+
 # Set PYTHONPATH so python can find the modules in src/ if needed, 
 # though we will run them directly.
 ENV PYTHONPATH="${PYTHONPATH}:/home/pepperdev/src"
