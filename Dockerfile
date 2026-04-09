@@ -25,9 +25,6 @@ ENV LC_ALL=en_US.UTF-8
 # Install Python packages
 # qibullet pulls in pybullet, numpy, cv2, etc.
 # flask for the shim server
-# Install Python packages
-# qibullet pulls in pybullet, numpy, cv2, etc.
-# flask for the shim server
 RUN pip3 install --no-cache-dir \
     qibullet \
     flask \
@@ -59,12 +56,6 @@ COPY src /home/pepperdev/src
 # Set PYTHONPATH so python can find the modules in src/ if needed, 
 # though we will run them directly.
 ENV PYTHONPATH="${PYTHONPATH}:/home/pepperdev/src"
-
-# Expose Shim Port
-EXPOSE 5000
-
-# Default command: Manual shell
-CMD ["/bin/bash"]
 
 # Expose Shim Port
 EXPOSE 5000
