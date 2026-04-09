@@ -11,7 +11,7 @@ This repository contains a Dockerised environment for developing applications fo
 To build the Docker image, run the following command from the root of the project directory:
 
 ```bash
-docker build -t jwgcurrie/pepper-box:01-26-latest .
+docker build -t pepper-box:latest .
 ```
 
 ## Run the Container
