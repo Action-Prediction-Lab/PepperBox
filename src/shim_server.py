@@ -82,10 +82,6 @@ def call_naoqi_method():
                 print("[Shim] Executing stopMove")
                 driver.stop_motion()
 
-            elif method == "stopMove":
-                print("[Shim] Executing stopMove")
-                driver.stop_motion()
-            
             elif method == "getRobotPosition":
                 # args: useSensors (bool) - ignored in shim, we give ground truth
                 # Returns [x, y, theta]
