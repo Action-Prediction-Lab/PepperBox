@@ -22,7 +22,7 @@ fi
 # Updated for qibullet
 docker run -it --rm \
     --net=host \
-    --privileged \
+    --device /dev/dri \
     -e DISPLAY=$DISPLAY \
     -e NAOQI_IP=${NAOQI_IP:-"127.0.0.1"} \
     -e NAOQI_PORT=${NAOQI_PORT:-9559} \
