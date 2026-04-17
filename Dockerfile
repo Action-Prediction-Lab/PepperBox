@@ -28,7 +28,8 @@ ENV LC_ALL=en_US.UTF-8
 RUN pip3 install --no-cache-dir \
     qibullet \
     flask \
-    numpy
+    numpy \
+    pyzmq
 
 # --- Legacy Support for Physical Robot (Python 2.7) ---
 RUN apt-get update && apt-get install -y python2 curl && \

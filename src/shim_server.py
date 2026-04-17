@@ -1,11 +1,47 @@
 from flask import Flask, request, jsonify
 import sys
 import threading
+import struct
+import time
+import zmq
 from driver import QiBulletDriver
 
 # --- Initialization ---
 # We launch the simulation on import/startup
 driver = QiBulletDriver(gui=True)
+
+
+class JointPublisher(threading.Thread):
+    """50Hz PUB of HeadYaw/HeadPitch on :5560 topic 'joints', wire-compatible with py3-naoqi-bridge/state_service.py."""
+    def __init__(self, pepper, rate_hz=50.0, port=5560):
+        super(JointPublisher, self).__init__()
+        self.pepper = pepper
+        self.dt = 1.0 / rate_hz
+        self.port = port
+        self.daemon = True
+
+    def run(self):
+        ctx = zmq.Context()
+        sock = ctx.socket(zmq.PUB)
+        sock.bind("tcp://*:{}".format(self.port))
+        print("[JointPublisher] Bound ZMQ PUB on tcp://*:{}".format(self.port))
+        while True:
+            loop_start = time.time()
+            try:
+                angles = self.pepper.getAnglesPosition(["HeadYaw", "HeadPitch"])
+                if angles and len(angles) == 2:
+                    payload = struct.pack('dff', loop_start, angles[0], angles[1])
+                    sock.send_multipart([b"joints", payload])
+            except Exception as e:
+                # Swallow so a transient qibullet hiccup doesn't kill the thread and silently lose proprioception.
+                sys.stderr.write("[JointPublisher] Error: {}\n".format(e))
+            elapsed = time.time() - loop_start
+            if elapsed < self.dt:
+                time.sleep(self.dt - elapsed)
+
+
+joint_publisher = JointPublisher(driver.pepper)
+joint_publisher.start()
 
 app = Flask(__name__)
 
