@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import os
 import sys
 import threading
 import struct
@@ -7,8 +8,11 @@ import zmq
 from driver import QiBulletDriver
 
 # --- Initialization ---
-# We launch the simulation on import/startup
-driver = QiBulletDriver(gui=True)
+# We launch the simulation on import/startup.
+# Default headless so the sim runs on X-less lab boxes; set QIBULLET_GUI=true
+# to get the pybullet window when a display is available.
+_gui = os.environ.get("QIBULLET_GUI", "false").lower() in ("1", "true", "yes")
+driver = QiBulletDriver(gui=_gui)
 
 
 class JointPublisher(threading.Thread):
