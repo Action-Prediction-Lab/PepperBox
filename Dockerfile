@@ -35,7 +35,7 @@ RUN pip3 install --no-cache-dir \
 RUN apt-get update && apt-get install -y python2 curl && \
     curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py && \
     python2 get-pip.py && \
-    python2 -m pip install flask requests && \
+    python2 -m pip install flask requests "pyzmq<20" && \
     rm -rf /var/lib/apt/lists/*
 
 # Setup pynaoqi SDK

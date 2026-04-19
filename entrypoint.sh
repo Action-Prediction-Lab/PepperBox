@@ -17,5 +17,6 @@ if [ "$MODE" = "true" ]; then
 else
     echo "[Entrypoint] Starting PHYSICAL ROBOT Bridge (pynaoqi)..."
     echo "   - Target: $NAOQI_IP:$NAOQI_PORT"
+    python2 py3-naoqi-bridge/video_streamer.py &
     python2 py3-naoqi-bridge/shim_server.py
 fi
