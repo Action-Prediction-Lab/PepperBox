@@ -32,7 +32,7 @@ RUN pip3 install --no-cache-dir \
     pyzmq
 
 # --- Legacy Support for Physical Robot (Python 2.7) ---
-RUN apt-get update && apt-get install -y python2 curl && \
+RUN apt-get update && apt-get install -y python2 libpython2.7 curl && \
     curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py && \
     python2 get-pip.py && \
     python2 -m pip install flask requests "pyzmq<20" && \
@@ -41,7 +41,8 @@ RUN apt-get update && apt-get install -y python2 curl && \
 # Setup pynaoqi SDK
 COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /opt/
 RUN tar -xzf /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /opt/ && \
-    rm /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz
+    rm /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz && \
+    chmod -R a+rX /opt/pynaoqi-python2.7-2.5.7.1-linux64
 
 # Add pynaoqi to PYTHONPATH for Python 2
 ENV PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages"
