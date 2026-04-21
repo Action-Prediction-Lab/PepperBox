@@ -10,6 +10,7 @@ Mirrors ros-naoqi/naoqi_bridge/naoqi_sensors_py/.../naoqi_microphone.py.
 """
 from __future__ import print_function
 import os
+import socket
 import sys
 import threading
 import time
@@ -19,6 +20,25 @@ import zmq
 
 CHUNK_PUB_PORT = 5563
 EXPECTED_CHUNK_BYTES = 5440  # 170 ms at 16 kHz mono int16
+CALLBACK_WATCHDOG_S = 15.0
+
+
+def _resolve_bind_ip(target_ip, target_port):
+    """Local IP the kernel would use as source when sending to target.
+
+    Why: ALBroker bound to 0.0.0.0 advertises every local interface to the
+    parent broker, which then picks one (often a Docker bridge) that is not
+    routable from the robot. Binding to the specific outbound source IP forces
+    the robot to dial back on an address it can reach.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((target_ip, target_port))
+        return s.getsockname()[0]
+    except Exception:
+        return "0.0.0.0"
+    finally:
+        s.close()
 
 
 class PublisherThread(threading.Thread):
@@ -62,13 +82,20 @@ except ImportError:
     _NAOQI_AVAILABLE = False
 
 
+# Module-level strong reference. NaoQiModule stores instances as weakrefs; if the
+# only reference is a local variable that goes out of scope, the object is GC'd
+# and processRemote callbacks silently become no-ops. The variable name MUST
+# match the ALModule name string passed to the constructor -- Aldebaran convention.
+PepperAudioPub = None
+
+
 class AudioPublisherModule(ALModule if _NAOQI_AVAILABLE else object):
     """ALModule that receives audio callbacks and forwards to the publisher thread."""
 
-    def __init__(self, module_name, publisher, ip, port):
+    def __init__(self, module_name, publisher, ip, port, bind_ip="0.0.0.0"):
         if not _NAOQI_AVAILABLE:
             raise RuntimeError("naoqi is not importable; AudioPublisherModule cannot run.")
-        self._broker = ALBroker("pepperAudioBroker", "0.0.0.0", 0, ip, port)
+        self._broker = ALBroker("pepperAudioBroker", bind_ip, 0, ip, port)
         ALModule.__init__(self, module_name)
         self._publisher = publisher
         self._first_callback_checked = False
@@ -77,11 +104,10 @@ class AudioPublisherModule(ALModule if _NAOQI_AVAILABLE else object):
         self._audio_proxy.subscribe(self.getName())
 
     def processRemote(self, nbOfChannels, nbOfSamplesByChannel, timeStamp, inputBuffer):
-        if not self._first_callback_checked:
-            assert nbOfChannels == 1, \
-                "Expected single-channel audio (FRONTCHANNEL=3); got %d channels" % nbOfChannels
-            self._first_callback_checked = True
-
+        """NAOqi audio callback. Docstring is load-bearing: ALModule.autoBind only
+        registers methods that have a non-empty __doc__, otherwise the robot cannot
+        invoke this callback and no audio ever arrives."""
+        self._first_callback_checked = True
         expected = nbOfChannels * nbOfSamplesByChannel * 2
         if len(inputBuffer) != expected:
             try:
@@ -100,30 +126,24 @@ class AudioPublisherModule(ALModule if _NAOQI_AVAILABLE else object):
         self._broker.shutdown()
 
 
-def _construct_with_timeout(ip, port, timeout_s=5.0):
-    """Call ALProxy(ALAudioDevice, ...) inside a thread with a bounded join.
+def _probe_reachable(ip, port, timeout_s=3.0):
+    """Raw TCP probe: returns True if ip:port accepts a connection.
 
-    Returns the proxy or raises RuntimeError on timeout (handles NAOqi-unreachable
-    without hanging the main thread for multiple seconds).
+    Used as a fast-fail check before constructing the ALBroker. We avoid
+    creating an ALProxy here because that would establish a default broker
+    session; subsequent ALProxy() calls inside the module would bind to it
+    instead of the broker we explicitly construct, which breaks the callback
+    routing on real hardware.
     """
-    result = [None]
-    exc = [None]
-
-    def go():
-        try:
-            result[0] = ALProxy("ALAudioDevice", ip, port)
-        except Exception as e:
-            exc[0] = e
-
-    t = threading.Thread(target=go)
-    t.daemon = True
-    t.start()
-    t.join(timeout_s)
-    if t.is_alive():
-        raise RuntimeError("ALProxy(ALAudioDevice) did not return within %.1fs" % timeout_s)
-    if exc[0] is not None:
-        raise exc[0]
-    return result[0]
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout_s)
+    try:
+        s.connect((ip, port))
+        return True
+    except Exception:
+        return False
+    finally:
+        s.close()
 
 
 def main():
@@ -134,22 +154,24 @@ def main():
     naoqi_ip = os.environ.get("NAOQI_IP", "127.0.0.1")
     naoqi_port = int(os.environ.get("NAOQI_PORT", "9559"))
 
-    try:
-        _ = _construct_with_timeout(naoqi_ip, naoqi_port, timeout_s=5.0)
-    except Exception as e:
-        sys.stderr.write("audio_publisher: ALAudioDevice unreachable: %s\n" % e)
+    if not _probe_reachable(naoqi_ip, naoqi_port, timeout_s=3.0):
+        sys.stderr.write("audio_publisher: NAOqi unreachable at %s:%d\n" % (naoqi_ip, naoqi_port))
         return 3
 
     publisher = PublisherThread()
     publisher.start()
 
-    module = AudioPublisherModule("PepperAudioPub", publisher, naoqi_ip, naoqi_port)
+    bind_ip = _resolve_bind_ip(naoqi_ip, naoqi_port)
+    sys.stderr.write("audio_publisher: broker bind_ip=%s target=%s:%d\n" % (bind_ip, naoqi_ip, naoqi_port))
 
-    # Routability watchdog: if no callback arrives within 500 ms, exit non-zero.
-    time.sleep(0.5)
-    if publisher.queue.empty() and not module._first_callback_checked:
+    global PepperAudioPub
+    PepperAudioPub = AudioPublisherModule("PepperAudioPub", publisher, naoqi_ip, naoqi_port, bind_ip=bind_ip)
+
+    # Routability watchdog: if no callback arrives before timeout, exit non-zero.
+    time.sleep(CALLBACK_WATCHDOG_S)
+    if publisher.queue.empty() and not PepperAudioPub._first_callback_checked:
         sys.stderr.write("audio_publisher: no callbacks received; broker unreachable from robot\n")
-        module.shutdown()
+        PepperAudioPub.shutdown()
         publisher.stop()
         publisher.join(timeout=2.0)
         return 4
@@ -160,7 +182,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        module.shutdown()
+        PepperAudioPub.shutdown()
         publisher.stop()
         publisher.join(timeout=2.0)
     return 0

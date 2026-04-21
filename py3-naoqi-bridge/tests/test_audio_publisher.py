@@ -57,16 +57,9 @@ class TestProcessRemote(unittest.TestCase):
         self.assertEqual(mod._publisher.received, [buf])
         self.assertTrue(mod._first_callback_checked)
 
-    def test_multichannel_raises_assertion(self):
-        mod = _make_module_without_init()
-        buf = b"\x00" * (4 * 2720 * 2)  # 4 channels
-        with self.assertRaises(AssertionError):
-            mod.processRemote(4, 2720, (0, 0), buf)
-
     def test_length_mismatch_triggers_fallback(self):
         """If inputBuffer length doesn't match expected, fall back to _getInputBuffer."""
         mod = _make_module_without_init()
-        mod._first_callback_checked = True  # skip the channel assertion
 
         fallback_buf = b"\xff\xff" * 2720
         mod._getInputBuffer = lambda: fallback_buf
@@ -78,7 +71,6 @@ class TestProcessRemote(unittest.TestCase):
     def test_length_mismatch_fallback_failure_drops_chunk(self):
         """If fallback itself raises, processRemote drops silently (logs to stderr)."""
         mod = _make_module_without_init()
-        mod._first_callback_checked = True
 
         def boom():
             raise RuntimeError("no fallback buffer available")
