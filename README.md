@@ -1,41 +1,53 @@
 # PepperBox
 
-This repository contains a Dockerized environment for developing applications for Aldebaran's NAO and Pepper robots, using Choregraphe and the `pynaoqi` Python SDK.
+This repository contains a Dockerised environment for developing applications for Aldebaran's NAO and Pepper robots, with the `pynaoqi` Python SDK, with the `qiBullet` simulator.
 
 ## Prerequisites
 
 - Docker
-- NVIDIA GPU with the latest drivers (for hardware acceleration)
 
 ## Build the Docker Image
 
 To build the Docker image, run the following command from the root of the project directory:
 
 ```bash
-docker build -t jwgcurrie/pepper-box:01-26-latest .
+docker build -t pepper-box:latest .
 ```
 
 ## Run the Container
 
-To start an interactive session in the container with host networking (required for easy connection to Choregraphe on the host):
+## Run the Container
+
+To start the environment:
 
 ```bash
 ./run.sh
 ```
 
-This will:
-1.  Start the container with `--net=host`.
-2.  Launch the `entrypoint.sh` which starts the `shim_server` (Flask app) on port 5000.
-3.  Start `avahi-daemon` and `choregraphe`.
+The container uses `entrypoint.sh` to automatically select the mode:
 
-### Connecting to the Shim Server
+1.  **Simulation Mode (Default)**:
+    *   If `NAOQI_IP` is unset or `localhost`, it launches **qibullet** (Python 3).
+    *   Requires `python3 src/setup_wizard.py` to be run once.
 
-The shim server listens on port 5000.
-By default, it connects to the physical robot at `127.0.0.1:9559` (inside the container) or `192.168.0.4:9559`.
-You can override this by setting environment variables before running:
+2.  **Physical Robot Mode**:
+    *   If `NAOQI_IP` is set to a remote address (e.g., Robot IP), it launches the **pynaoqi bridge** (Python 2).
+    *   Example:
+        ```bash
+        export NAOQI_IP=192.168.1.100
+        ./run.sh
+        ```
 
+### Connection Details
+The **Shim Server** (port 5000) is your unified endpoint.
+*   **Simulation**: Proxies to internal qibullet.
+*   **Physical**: Proxies to the real robot via `pynaoqi`.
+
+Your client code (Python 3) does not need to know the difference.
+
+### First Time Setup (Simulation Only)
+If utilizing the simulator, you must install assets once:
 ```bash
-export NAOQI_IP=127.0.0.1
-export NAOQI_PORT=43175
-./run.sh
+# Inside container
+python3 src/setup_wizard.py
 ```
