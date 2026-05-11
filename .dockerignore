@@ -1,0 +1,30 @@
+# No proprietary binaries in build context. 
+*.tar.gz
+*.run
+
+# Version control and editor
+.git
+.gitignore
+.gitattributes
+.dockerignore
+
+# Python build artefacts
+__pycache__/
+*.pyc
+*.pyo
+
+# qibullet asset cache is host-mounted at runtime, not baked
+.qibullet/
+
+# Internal design docs and per-machine notes
+roadmap/
+CLAUDE.md
+.claude/
+
+# Stale Dockerfile copies
+Dockerfile.backup
+Dockerfile.backup.backup
+
+# Recordings, logs, sessions (not relevant here, but defensive)
+recordings/
+logs/

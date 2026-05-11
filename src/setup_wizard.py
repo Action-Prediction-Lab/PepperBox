@@ -1,23 +1,43 @@
 #!/usr/bin/env python3
-import sys
 import os
 import shutil
+import sys
 from unittest.mock import patch
-from qibullet import SimulationManager
-from qibullet import PepperVirtual
+
 from qibullet import tools
 
+LICENCE_ENV = "PEPPERBOX_ACCEPT_SOFTBANK_LICENSE"
+LICENCE_NOTE = """\
+qibullet's first-time setup installs SoftBank Robotics' Pepper URDF and mesh
+assets, which are distributed under SoftBank Robotics' end-user licence (see
+the LICENSE-* files bundled with the qibullet package).
+
+To proceed, acknowledge the licence by exporting:
+
+  export {env}=1
+
+Then re-run this script (or restart the container; the entrypoint will pick
+it up automatically).
+""".format(env=LICENCE_ENV)
+
+
+def licence_accepted() -> bool:
+    return os.environ.get(LICENCE_ENV, "").lower() in {"1", "true", "yes"}
+
+
 def setup():
-    print("="*60)
+    print("=" * 60)
     print("      PepperBox Setup Wizard (qibullet)")
-    print("="*60)
-    
-    # 1. Force Clean Check
+    print("=" * 60)
+
+    if not licence_accepted():
+        print(LICENCE_NOTE)
+        sys.exit(1)
+
     qibullet_root = os.path.join(os.path.expanduser("~"), ".qibullet")
     print(f"Checking {qibullet_root}...")
     if os.path.exists(qibullet_root):
-        print(f"Found existing qibullet folder (Docker Volume).")
-        print("Cleaning contents to force fresh install...")
+        print("Found existing qibullet folder (docker volume); clearing for fresh install...")
         try:
             for filename in os.listdir(qibullet_root):
                 file_path = os.path.join(qibullet_root, filename)
@@ -27,14 +47,13 @@ def setup():
                     shutil.rmtree(file_path)
             print("Cleanup complete.")
         except Exception as e:
-            print(f"Warning: Could not clean folder: {e}")
+            print(f"Warning: could not clean folder: {e}")
 
-    print("Refusing to launch GUI to ensure clean asset installation.")
-    print("Auto-accepting Softbank Robotics license...")
+    print(f"Licence acknowledged via {LICENCE_ENV}=1; proceeding.")
     print("-" * 60)
-    
-    # Custom mkdir that ignores "File exists" errors
+
     original_mkdir = os.mkdir
+
     def safe_mkdir(path, *args, **kwargs):
         try:
             original_mkdir(path, *args, **kwargs)
@@ -42,25 +61,25 @@ def setup():
             pass
 
     try:
-        # MOCK 1: Input -> 'y' (Accept license)
-        # MOCK 2: _uninstall_resources -> True (Don't try to delete the Docker mount point)
-        # MOCK 3: os.mkdir -> safe_mkdir (Allow existing folders/volumes)
-        with patch('builtins.input', return_value='y'), \
-             patch('qibullet.tools._uninstall_resources', return_value=True), \
-             patch('os.mkdir', side_effect=safe_mkdir):
-             
-             print("Invoking installer with auto-accept...")
-             tools._install_resources()
-        
-        print("\n\n" + "="*60)
-        print("SUCCESS! Assets installed.")
-        print(" you can now run 'python3 qibullet_shim_server.py'")
-        print("="*60)
-        
+
+        with patch("builtins.input", return_value="y"), \
+             patch("qibullet.tools._uninstall_resources", return_value=True), \
+             patch("os.mkdir", side_effect=safe_mkdir):
+
+            print("Invoking qibullet installer...")
+            tools._install_resources()
+
+        print("\n" + "=" * 60)
+        print("SUCCESS — qibullet assets installed.")
+        print("=" * 60)
+
     except KeyboardInterrupt:
         print("\nSetup cancelled by user.")
+        sys.exit(130)
     except Exception as e:
         print(f"\nError during setup: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     setup()
