@@ -45,10 +45,13 @@ EOF
     fi
 
     NAOQI_PORT=${NAOQI_PORT:-9559}
+    # 20s tolerance: Pepper's onboard 2.4 GHz WiFi can introduce 5-50ms RTT
+    # variance and intermittent packet loss at any moment. A short timeout
+    # produces spurious pre-flight failures on real-world lab conditions.
     if ! python2 -c "
 import socket, sys
 s = socket.socket()
-s.settimeout(3)
+s.settimeout(20)
 try:
     s.connect(('$NAOQI_IP', $NAOQI_PORT))
 except Exception as exc:
