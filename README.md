@@ -9,11 +9,11 @@ A single image runs both modes; the `NAOQI_IP` environment variable selects whet
 
 In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code. The client is agnostic to whether you connect to a physical or simulated robot. 
 
-## What's in the image and what isn't
+## What's in the image
 
-The image contains qiBullet, a Python 2.7 runtime, the bridge code (`py3-naoqi-bridge/`), and the simulation shim (`src/`). It does **not** contain SoftBank Robotics' `pynaoqi` SDK, which is proprietary and not redistributable. Physical-robot users supply their own licit copy at runtime via a bind-mount; see [Physical robot setup](#physical-robot-setup) below.
+qiBullet, a Python 2.7 runtime, the bridge code (`py3-naoqi-bridge/`), and the simulation shim (`src/`). The pynaoqi SDK is supplied separately by the user at runtime via a bind-mount; see [Physical robot setup](#physical-robot-setup) below.
 
-This split keeps the image cleanly redistributable. Simulation works without any SoftBank-licensed binary.
+Simulation runs without anything else.
 
 ## Prerequisites
 
