@@ -13,7 +13,6 @@ In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to
 
 qiBullet, a Python 2.7 runtime, the bridge code (`py3-naoqi-bridge/`), and the simulation shim (`src/`). The pynaoqi SDK is supplied separately by the user at runtime via a bind-mount; see [Physical robot setup](#physical-robot-setup) below.
 
-Simulation runs without anything else.
 
 ## Prerequisites
 
@@ -23,21 +22,13 @@ Simulation runs without anything else.
 
 ## Physical robot setup
 
-You will need the SoftBank Robotics pynaoqi SDK once. PepperBox does not ship it; the `setup.sh` script fetches it directly from Aldebaran's still-live CDN, with a Wayback Machine fallback, and verifies the SHA256.
+You will need the SoftBank Robotics pynaoqi SDK once. PepperBox does not ship it; the `setup.sh` script fetches it directly from Aldebaran's CDN, with a Wayback Machine fallback, and verifies the SHA256.
 
 ```bash
 ./setup.sh
 ```
 
 This places the SDK at `~/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64/`. `run.sh` and the docker-compose stack then bind-mount that directory into the container at `/opt/pynaoqi-python2.7-2.5.7.1-linux64`.
-
-If both download sources are unreachable, the script prints the expected filename, size, and SHA256 so you can supply the file from any byte-identical mirror:
-
-```
-filename: pynaoqi-python2.7-2.5.7.1-linux64.tar.gz
-size:     51743305 bytes
-sha256:   d2060ad69f87481f0dda82ede6c70c3b65afa6f1bf06e2c107c2e373d26d92c2
-```
 
 Once the SDK is in place, set the robot's address and run:
 

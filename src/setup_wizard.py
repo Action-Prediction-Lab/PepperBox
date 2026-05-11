@@ -61,12 +61,7 @@ def setup():
             pass
 
     try:
-        # qibullet's installer interactively prompts for licence acceptance
-        # and tries to delete its install directory before re-creating it. The
-        # docker-mounted .qibullet path can't be deleted from inside the
-        # container, so we mock the relevant calls. The licence prompt is
-        # already gated above by the env var, so the inner mock is just
-        # plumbing to satisfy the installer.
+
         with patch("builtins.input", return_value="y"), \
              patch("qibullet.tools._uninstall_resources", return_value=True), \
              patch("os.mkdir", side_effect=safe_mkdir):

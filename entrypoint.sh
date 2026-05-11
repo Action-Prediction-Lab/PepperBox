@@ -28,11 +28,7 @@ if [ "$MODE" = "true" ]; then
 else
     echo "[Entrypoint] Starting PHYSICAL ROBOT Bridge (pynaoqi)..."
     echo "   - Target: $NAOQI_IP:$NAOQI_PORT"
-
-    # pynaoqi is proprietary and never baked into the image; the host supplies
-    # it via bind-mount at /opt/pynaoqi-python2.7-2.5.7.1-linux64 (see run.sh /
-    # the dev-overlay compose). Fail fast with a friendly message rather than
-    # letting Python 2 emit an ImportError six frames deep.
+ 
     NAOQI_PY="/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages/naoqi.py"
     if [ ! -f "$NAOQI_PY" ]; then
         cat >&2 <<EOF

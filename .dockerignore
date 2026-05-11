@@ -1,10 +1,8 @@
-# Proprietary binaries must never enter the build context. Even with the
-# Dockerfile no longer COPYing the tarball, an accidental `ADD .` or a future
-# wildcard would re-introduce it. Belt and braces.
+# No proprietary binaries in build context. 
 *.tar.gz
 *.run
 
-# Version control and editor noise
+# Version control and editor
 .git
 .gitignore
 .gitattributes

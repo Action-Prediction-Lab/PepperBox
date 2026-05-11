@@ -16,9 +16,6 @@ else
     DOCKER_ARGS=""
 fi
 
-# pynaoqi SDK is supplied at runtime, never baked into the image. Run
-# ./setup.sh on the host first to populate ~/.pepperbox; that path then
-# bind-mounts into the container so the physical-robot bridge can find naoqi.
 PEPPERBOX_HOME="${PEPPERBOX_HOME:-$HOME/.pepperbox}"
 PYNAOQI_HOST="${PEPPERBOX_HOME}/pynaoqi-python2.7-2.5.7.1-linux64"
 PYNAOQI_MOUNT=()

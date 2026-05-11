@@ -40,8 +40,6 @@ RUN apt-get update && apt-get install -y python2 libpython2.7 curl && \
 
 # pynaoqi SDK is supplied at runtime by bind-mounting the user's licit copy at
 # /opt/pynaoqi-python2.7-2.5.7.1-linux64 (see setup.sh and the compose files).
-# The image itself never contains SoftBank Robotics proprietary binaries, so it
-# is safe to redistribute publicly. Sim mode (qibullet) does not need this path.
 ENV PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages"
 
 # Create non-root user
