@@ -93,4 +93,4 @@ PepperBox/
 
 ## Licence
 
-PepperBox itself is BSD 3-Clause; see `LICENSE`. The pynaoqi SDK and the Pepper URDF/mesh assets bundled with qiBullet are SoftBank Robotics property and remain under SoftBank's terms.
+This project is licensed under the Apache License 2.0, see the [LICENSE](LICENSE) file for details.
