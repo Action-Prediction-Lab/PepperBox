@@ -38,13 +38,10 @@ RUN apt-get update && apt-get install -y python2 libpython2.7 curl && \
     python2 -m pip install flask requests "pyzmq<20" && \
     rm -rf /var/lib/apt/lists/*
 
-# Setup pynaoqi SDK
-COPY pynaoqi-python2.7-2.5.7.1-linux64.tar.gz /opt/
-RUN tar -xzf /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz -C /opt/ && \
-    rm /opt/pynaoqi-python2.7-2.5.7.1-linux64.tar.gz && \
-    chmod -R a+rX /opt/pynaoqi-python2.7-2.5.7.1-linux64
-
-# Add pynaoqi to PYTHONPATH for Python 2
+# pynaoqi SDK is supplied at runtime by bind-mounting the user's licit copy at
+# /opt/pynaoqi-python2.7-2.5.7.1-linux64 (see setup.sh and the compose files).
+# The image itself never contains SoftBank Robotics proprietary binaries, so it
+# is safe to redistribute publicly. Sim mode (qibullet) does not need this path.
 ENV PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.7.1-linux64/lib/python2.7/site-packages"
 
 # Create non-root user

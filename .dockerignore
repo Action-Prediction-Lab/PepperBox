@@ -1,0 +1,32 @@
+# Proprietary binaries must never enter the build context. Even with the
+# Dockerfile no longer COPYing the tarball, an accidental `ADD .` or a future
+# wildcard would re-introduce it. Belt and braces.
+*.tar.gz
+*.run
+
+# Version control and editor noise
+.git
+.gitignore
+.gitattributes
+.dockerignore
+
+# Python build artefacts
+__pycache__/
+*.pyc
+*.pyo
+
+# qibullet asset cache is host-mounted at runtime, not baked
+.qibullet/
+
+# Internal design docs and per-machine notes
+roadmap/
+CLAUDE.md
+.claude/
+
+# Stale Dockerfile copies
+Dockerfile.backup
+Dockerfile.backup.backup
+
+# Recordings, logs, sessions (not relevant here, but defensive)
+recordings/
+logs/
