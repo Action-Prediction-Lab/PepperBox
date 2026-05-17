@@ -40,5 +40,5 @@ docker run -it --rm \
     "${PYNAOQI_MOUNT[@]}" \
     $DOCKER_ARGS \
     --name pepper-qibullet \
-    pepper-box:latest \
+    ghcr.io/action-prediction-lab/pepper-box:latest \
     /home/pepperdev/entrypoint.sh

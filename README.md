@@ -58,7 +58,7 @@ The relevant licence files ship with the qiBullet package; see the project at `s
 ## Build
 
 ```bash
-docker build -t pepper-box:latest .
+docker build -t ghcr.io/action-prediction-lab/pepper-box:latest .
 ```
 
 The build does not include any SoftBank Robotics proprietary content. It can be run on any host without a Pepper or pynaoqi present.
