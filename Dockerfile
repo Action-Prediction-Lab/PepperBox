@@ -47,6 +47,9 @@ RUN useradd --create-home --shell /bin/bash pepperdev
 USER pepperdev
 WORKDIR /home/pepperdev
 
+# Pre-create cache dir so downstream mounts inherit pepperdev ownership.
+RUN mkdir .qibullet
+
 # Copy Bridge Code
 COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
