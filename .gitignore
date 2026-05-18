@@ -6,4 +6,8 @@ __pycache__/
 .qibullet/
 *.run
 *.tar.gz
+
+# internal docs
+docs/
 roadmap/
+
