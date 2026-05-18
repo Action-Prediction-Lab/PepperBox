@@ -322,3 +322,23 @@ def test_memory_insertdata_is_stub():
     adapter = _memory_adapter()
     assert adapter.insertData("key", "value") is None
     adapter._pepper.insertData.assert_not_called()
+
+
+# --- ALRobotPostureAdapter ---
+
+from adapters.posture import ALRobotPostureAdapter
+
+
+def test_posture_gotoposture_passes_through():
+    pepper = MagicMock()
+    pepper.goToPosture.return_value = True
+    adapter = ALRobotPostureAdapter(pepper, TaskRegistry())
+    assert adapter.goToPosture("Stand", 0.5) is True
+    pepper.goToPosture.assert_called_once_with("Stand", 0.5)
+
+
+def test_posture_gotoposture_returns_qibullet_false_for_unknown():
+    pepper = MagicMock()
+    pepper.goToPosture.return_value = False
+    adapter = ALRobotPostureAdapter(pepper, TaskRegistry())
+    assert adapter.goToPosture("Sit", 0.5) is False
