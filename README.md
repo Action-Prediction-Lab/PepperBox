@@ -9,7 +9,7 @@ Switch between modes by setting `NAOQI_IP` and `NAOQI_PORT` in your environment 
 - **Robot** `NAOQI_IP=<robot.ip>` and `NAOQI_PORT=9559` runs the Python 2 `pynaoqi` bridge.
 - **Simulation** `NAOQI_IP=127.0.0.1` (or unset) runs the Python 3 `qiBullet` simulator.
 
-The client is agnostic to whether you connect to a physical or simulated robot. In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code. 
+The client is agnostic to whether you connect to a physical or simulated robot. In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code (see [`py3-naoqi-bridge/README.md`](py3-naoqi-bridge/README.md) for the wire contract and `NaoqiClient` reference).
 
 ## What's in the image
 
@@ -107,13 +107,18 @@ PepperBox/
 ├── entrypoint.sh           # mode dispatch + pre-flight checks
 ├── run.sh                  # standalone host launcher
 ├── setup.sh                # one-shot pynaoqi installer
-├── src/
-│   ├── shim_server.py      # qiBullet (sim) shim
+├── src/                    # qiBullet (sim) backend
+│   ├── shim_server.py      # Flask route + create_app factory
+│   ├── dispatcher.py       # per-module dispatch returning (result, is_stub)
+│   ├── driver.py           # QiBulletDriver sim lifecycle
+│   ├── post_tasks.py       # TaskRegistry for NAOqi post() async dispatch
+│   ├── adapters/           # per-module NAOqi adapters (motion, memory, ...)
 │   └── setup_wizard.py     # qiBullet asset installer
-└── py3-naoqi-bridge/
-    ├── shim_server.py      # pynaoqi (physical) shim
+└── py3-naoqi-bridge/        # pynaoqi (physical) backend + shared Python 3 client
+    ├── shim_server.py       # pynaoqi (physical) shim
+    ├── naoqi_proxy.py       # NaoqiClient — used against both shims
     ├── video_streamer.py
-    └── ...                 # NAOqi-side services
+    └── ...                  # NAOqi-side services and clients
 ```
 
 ## Develop
