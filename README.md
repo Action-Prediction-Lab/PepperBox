@@ -1,6 +1,8 @@
 # PepperBox
 
-A containerised backend for developing applications with Aldebaran/SoftBank's Pepper robots.
+PepperBox is a containerised gateway to the Pepper robot, wrapping legacy Python 2 NAOqi dependencies behind a modern HTTP and ZMQ API so researchers can deploy reproducibly and build applications for Pepper in modern Python 3.
+
+PepperBox bundles the `qibullet` simulator, so you can develop without a physical Pepper and run automated experiments headlessly.
 
 Switch between modes by setting `NAOQI_IP` and `NAOQI_PORT` in your environment before launching `./run.sh`:
 
@@ -11,34 +13,16 @@ The client is agnostic to whether you connect to a physical or simulated robot. 
 
 ## What's in the image
 
-qiBullet, a Python 2.7 runtime, the bridge code (`py3-naoqi-bridge/`), and the simulation shim (`src/`). The pynaoqi SDK is supplied separately by the user at runtime via a bind-mount; see [Physical robot setup](#physical-robot-setup) below.
+qiBullet, a Python 2.7 runtime, the bridge code (`py3-naoqi-bridge/`), and the simulation shim (`src/`). 
+
+The pynaoqi SDK (SoftBank intellectual property) is not bundled in the image. A setup script fetches it on your behalf when you run it, so any licence acceptance sits with the user; see [Physical robot setup](#physical-robot-setup) below.
 
 
 ## Prerequisites
 
-- Docker
-- Linux host (uses `--net=host` and `/dev/dri`)
-- For physical-robot use: a Pepper or NAO on a network reachable from the host
-
-## Physical robot setup
-
-You will need the SoftBank Robotics pynaoqi SDK once. PepperBox does not ship it; the `setup.sh` script fetches it directly from Aldebaran's CDN, with a Wayback Machine fallback, and verifies the SHA256.
-
-```bash
-./setup.sh
-```
-
-This places the SDK at `~/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64/`. `run.sh` and the docker-compose stack then bind-mount that directory into the container at `/opt/pynaoqi-python2.7-2.5.7.1-linux64`.
-
-Once the SDK is in place, set the robot's address and run:
-
-```bash
-export NAOQI_IP=192.168.123.50   # your robot's IP
-export NAOQI_PORT=9559
-./run.sh
-```
-
-`entrypoint.sh` checks the SDK is mounted and the robot is reachable before starting the bridge, and reports a specific error if either is wrong.
+- Linux host
+- Docker 
+- For physical-robot use: a Pepper or NAO (NAO is untested) on a network reachable from the host
 
 ## Simulation
 
@@ -53,36 +37,69 @@ export PEPPERBOX_ACCEPT_SOFTBANK_LICENSE=1
 ./run.sh
 ```
 
-The relevant licence files ship with the qiBullet package; see the project at `softbankrobotics-research/qibullet`.
+Of course, first read the relevant licence files that ship with the qiBullet package before agreeing; see the project at `softbankrobotics-research/qibullet`.
 
-To show the PyBullet GUI window on launch:
-
-```bash
-QIBULLET_GUI=true ./run.sh
-```
-
-By default PepperBox ships with the simulator set to headless.
-
-## Build
+By default the sim runs in headless. For the sim GUI window, set `QIBULLET_GUI=true` before launching:
 
 ```bash
-docker build -t ghcr.io/action-prediction-lab/pepper-box:latest .
+export QIBULLET_GUI=true
+./run.sh
 ```
 
-The build does not include any SoftBank Robotics proprietary content. It can be run on any host without a Pepper or pynaoqi present.
+![Pepper in the qibullet simulator](docs/img/pepper_sim.png)
 
-## Connection details
+## Usage
 
-The shim server on `:5000` is your unified entry point.
+Install the Python 3 client into whatever environment your application runs in:
 
-| Mode         | Backend                          | Switched by                    |
-| ------------ | -------------------------------- | ------------------------------ |
-| Simulation   | Python 3 + qiBullet              | `NAOQI_IP=127.0.0.1` or unset  |
-| Physical     | Python 2 + pynaoqi bridge        | `NAOQI_IP=<remote IP>`         |
+```bash
+pip install -e py3-naoqi-bridge
+```
 
-Client code (Python 3) is identical in either case.
+Then talk to the shim exactly as you would talk to NAOqi directly:
 
-## Layout
+```python
+from naoqi_proxy import NaoqiClient
+
+client = NaoqiClient()  # defaults to localhost:5000
+client.ALTextToSpeech.say("Hello from Python 3!")
+position = client.ALMotion.getRobotPosition(True)
+```
+See the [NAOqi 2.5 module reference](http://doc.aldebaran.com/2-5/naoqi/index.html).
+
+Any `module.method(*args, **kwargs)` call you would make through `ALProxy` works through our `NaoqiClient`.
+
+### Low latency streams
+
+We ship two ZMQ subscribers alongside the client for low-latency data streaming:
+
+- `clients.vision_client.VisionClient`: greyscale QVGA video on port `5559` (currently physical only).
+- `clients.state_client.StateClient`: head joints (full body on the roadmap) at 50 Hz on port `5560`, with time-interpolated lookup (both robot and sim).
+
+## Physical robot setup
+
+You will need to install the SoftBank Robotics pynaoqi SDK once. PepperBox cannot ship it for legal reasons, but our `setup.sh` script fetches it directly from Aldebaran's CDN for you, with a Wayback Machine fallback, and verifies the SHA256. 
+
+Simply run the command from the repository's root.
+
+```bash
+./setup.sh
+```
+
+This places the SDK at `~/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64/`. `run.sh` then bind-mounts that directory into the container at `/opt/pynaoqi-python2.7-2.5.7.1-linux64`.
+
+Once you run the setup script, set the robot's address and run:
+
+```bash
+export NAOQI_IP=192.168.123.50   # your robot's IP
+export NAOQI_PORT=9559
+./run.sh
+```
+
+`entrypoint.sh` checks that the SDK is mounted and the robot is reachable before starting the bridge. If there's an issue, an error will inform you. 
+
+
+## Architecture
 
 ```
 PepperBox/
@@ -104,6 +121,24 @@ PepperBox/
     └── ...                  # NAOqi-side services and clients
 ```
 
+## Develop
+
+`run.sh` bind-mounts `src/` and `py3-naoqi-bridge/` from the host into the container, so edits to Python sources are picked up on the next `./run.sh` without a rebuild. Rebuild the image only when the Dockerfile or its system dependencies change:
+
+```bash
+docker build -t ghcr.io/action-prediction-lab/pepper-box:latest .
+```
+
+> Rebuilding overwrites the upstream image in your local Docker cache, so subsequent `./run.sh` runs use your build.
+
+## Contributing
+
+Fork the repository, make your changes on a branch, and open a pull request against `main`. Match the surrounding code style; we don't enforce a formal one. Before opening the PR, test your changes in sim, or better, on the robot. In the PR description, include the expected behaviour and the steps reviewers can use to validate your contribution.
+
+The CI pipeline builds the Dockerfile on each PR to confirm the image still assembles, and every PR is reviewed by the repository maintainers.
+
+First-time contributors are encouraged to keep an eye out for open issues they can contribute to, and to submit new issues for bugs they hit or features they would like to see.
+
 ## Licence
 
-This project is licensed under the Apache License 2.0, see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 (see [LICENSE](LICENSE)).
