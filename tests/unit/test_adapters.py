@@ -127,3 +127,125 @@ def test_stub_adapter_post_runs_stub_target():
     task_id = adapter.post("anyMethod", "arg")
     assert isinstance(task_id, int)
     assert registry._tasks[task_id]["result"] is None
+
+
+# --- ALMotionAdapter ---
+
+from adapters.motion import ALMotionAdapter
+
+
+def _motion_adapter():
+    return ALMotionAdapter(MagicMock(), TaskRegistry())
+
+
+def test_motion_move_passes_floats():
+    adapter = _motion_adapter()
+    adapter.move("1.5", "0", "0.5")
+    adapter._pepper.move.assert_called_once_with(1.5, 0.0, 0.5)
+
+
+def test_motion_movetoward_scales_by_max_velocity():
+    from qibullet.base_controller import PepperBaseController as PBC
+    adapter = _motion_adapter()
+    adapter.moveToward(0.5, 0, 0.5)
+    adapter._pepper.move.assert_called_once_with(
+        0.5 * PBC.MAX_LINEAR_VELOCITY,
+        0.0 * PBC.MAX_LINEAR_VELOCITY,
+        0.5 * PBC.MAX_ANGULAR_VELOCITY,
+    )
+
+
+def test_motion_moveto_forces_async():
+    adapter = _motion_adapter()
+    adapter.moveTo(1.0, 0.0, 0.0)
+    adapter._pepper.moveTo.assert_called_once_with(1.0, 0.0, 0.0, _async=True)
+
+
+def test_motion_stopmove_zeros_velocity():
+    adapter = _motion_adapter()
+    adapter.stopMove()
+    adapter._pepper.stopMove.assert_called_once_with()
+    adapter._pepper.move.assert_called_once_with(0, 0, 0)
+
+
+def test_motion_getrobotposition_returns_list():
+    adapter = _motion_adapter()
+    adapter._pepper.getPosition.return_value = (1.0, 2.0, 0.5)
+    result = adapter.getRobotPosition(True)
+    assert result == [1.0, 2.0, 0.5]
+    adapter._pepper.getPosition.assert_called_once_with()
+
+
+def test_motion_getangles_wraps_scalar_to_list():
+    adapter = _motion_adapter()
+    adapter._pepper.getAnglesPosition.return_value = 0.42  # scalar from qibullet
+    result = adapter.getAngles("HeadYaw", True)
+    assert result == [0.42]
+
+
+def test_motion_getangles_preserves_list():
+    adapter = _motion_adapter()
+    adapter._pepper.getAnglesPosition.return_value = [0.1, 0.2]
+    result = adapter.getAngles(["HeadYaw", "HeadPitch"], True)
+    assert result == [0.1, 0.2]
+
+
+def test_motion_setangles_passes_through():
+    adapter = _motion_adapter()
+    adapter.setAngles(["HeadYaw"], [0.3], 0.1)
+    adapter._pepper.setAngles.assert_called_once_with(["HeadYaw"], [0.3], 0.1)
+
+
+def test_motion_angleinterpolation_calls_setangles():
+    adapter = _motion_adapter()
+    adapter.angleInterpolation(["RHand"], [0.5], [2.0], True)
+    adapter._pepper.setAngles.assert_called_once_with(["RHand"], [0.5], 0.5)
+
+
+def test_motion_wakeup_is_stub():
+    adapter = _motion_adapter()
+    assert adapter.wakeUp() is None
+    assert getattr(type(adapter).wakeUp, "_sim_stub", False) is True
+
+
+def test_motion_robotiswakeup_returns_true():
+    adapter = _motion_adapter()
+    assert adapter.robotIsWakeUp() is True
+
+
+def test_motion_setstiffnesses_is_stub_no_op():
+    adapter = _motion_adapter()
+    assert adapter.setStiffnesses("Head", 0.5) is None
+    adapter._pepper.setStiffnesses.assert_not_called()
+
+
+def test_motion_setbreathconfig_is_stub_no_op():
+    adapter = _motion_adapter()
+    assert adapter.setBreathConfig([["Bpm", 15.0], ["Amplitude", 0.99]]) is None
+    adapter._pepper.setBreathConfig.assert_not_called()
+
+
+def test_motion_setbreathenabled_is_stub_no_op():
+    adapter = _motion_adapter()
+    assert adapter.setBreathEnabled("Legs", True) is None
+    adapter._pepper.setBreathEnabled.assert_not_called()
+
+
+def test_motion_setexternalcollisionprotectionenabled_is_stub_no_op():
+    adapter = _motion_adapter()
+    assert adapter.setExternalCollisionProtectionEnabled("RArm", False) is None
+    adapter._pepper.setExternalCollisionProtectionEnabled.assert_not_called()
+
+
+def test_motion_getrobotconfig_returns_empty_list():
+    adapter = _motion_adapter()
+    assert adapter.getRobotConfig() == []
+
+
+def test_motion_wait_delegates_to_registry():
+    pepper = MagicMock()
+    registry = TaskRegistry()
+    adapter = ALMotionAdapter(pepper, registry)
+    fake_id = registry.submit_sync(lambda: None, (), {})
+    assert adapter.wait(fake_id, 5000) is True
+    assert adapter.wait(99999, 5000) is False
