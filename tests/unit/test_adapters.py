@@ -342,3 +342,21 @@ def test_posture_gotoposture_returns_qibullet_false_for_unknown():
     pepper.goToPosture.return_value = False
     adapter = ALRobotPostureAdapter(pepper, TaskRegistry())
     assert adapter.goToPosture("Sit", 0.5) is False
+
+
+# --- ALLaserAdapter ---
+
+from adapters.laser import ALLaserAdapter
+
+
+def test_laser_show_calls_pepper_showlaser():
+    pepper = MagicMock()
+    adapter = ALLaserAdapter(pepper, TaskRegistry())
+    adapter.show(True)
+    pepper.showLaser.assert_called_once_with(True)
+
+
+def test_laser_show_returns_true():
+    pepper = MagicMock()
+    adapter = ALLaserAdapter(pepper, TaskRegistry())
+    assert adapter.show(True) is True
