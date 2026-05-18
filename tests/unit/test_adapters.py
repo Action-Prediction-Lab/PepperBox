@@ -382,3 +382,74 @@ def test_tts_say_is_stub_marked():
 def test_tts_getavailablelanguages_returns_english():
     adapter = ALTextToSpeechAdapter(MagicMock(), TaskRegistry())
     assert adapter.getAvailableLanguages() == ["English"]
+
+
+# --- MODULE_ADAPTERS registry ---
+
+from adapters import build_module_adapters
+
+
+def test_registry_contains_modeled_modules():
+    pepper = MagicMock()
+    registry = TaskRegistry()
+    adapters = build_module_adapters(pepper, registry)
+    for module in ["ALMotion", "ALMemory", "ALRobotPosture", "ALLaser",
+                   "ALTextToSpeech", "ALAnimatedSpeech"]:
+        assert module in adapters, "missing adapter for {}".format(module)
+
+
+def test_registry_contains_stub_modules():
+    pepper = MagicMock()
+    registry = TaskRegistry()
+    adapters = build_module_adapters(pepper, registry)
+    for module in ["ALAnimationPlayer", "ALAutonomousLife", "ALBasicAwareness",
+                   "ALFaceDetection", "ALTracker", "ALLandMarkDetection",
+                   "ALSystem", "ALAudioPlayer", "ALAudioDevice",
+                   "ALBattery", "ALBodyTemperature"]:
+        assert module in adapters, "missing stub adapter for {}".format(module)
+
+
+def test_registry_tracker_getmode_returns_head():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALTracker"].getMode() == "Head"
+
+
+def test_registry_basicawareness_isenabled_returns_false():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALBasicAwareness"].isEnabled() is False
+
+
+def test_registry_battery_getbatterycharge_returns_100():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALBattery"].getBatteryCharge() == 100.0
+
+
+def test_registry_bodytemperature_getdiagnosis():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALBodyTemperature"].getTemperatureDiagnosis() == [0, []]
+
+
+def test_registry_system_systemversion():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALSystem"].systemVersion() == "2.5.7.1"
+
+
+def test_registry_audiodevice_isaudioout_returns_false():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALAudioDevice"].isAudioOutActing() is False
+
+
+def test_registry_audioplayer_getcurrentposition_returns_zero():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALAudioPlayer"].getCurrentPosition(0) == 0.0
+
+
+def test_registry_autonomouslife_getstate_returns_disabled():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    assert adapters["ALAutonomousLife"].getState() == "disabled"
+
+
+def test_registry_animatedspeech_says():
+    adapters = build_module_adapters(MagicMock(), TaskRegistry())
+    # ALAnimatedSpeech reuses the same adapter class as ALTextToSpeech.
+    assert adapters["ALAnimatedSpeech"].say("hi") is None
