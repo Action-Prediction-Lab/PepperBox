@@ -360,3 +360,25 @@ def test_laser_show_returns_true():
     pepper = MagicMock()
     adapter = ALLaserAdapter(pepper, TaskRegistry())
     assert adapter.show(True) is True
+
+
+# --- ALTextToSpeechAdapter ---
+
+from adapters.tts import ALTextToSpeechAdapter
+
+
+def test_tts_say_returns_none_and_prints(capsys):
+    adapter = ALTextToSpeechAdapter(MagicMock(), TaskRegistry())
+    result = adapter.say("Hello world")
+    captured = capsys.readouterr()
+    assert result is None
+    assert "[SIM-TTS] Hello world" in captured.err
+
+
+def test_tts_say_is_stub_marked():
+    assert getattr(ALTextToSpeechAdapter.say, "_sim_stub", False) is True
+
+
+def test_tts_getavailablelanguages_returns_english():
+    adapter = ALTextToSpeechAdapter(MagicMock(), TaskRegistry())
+    assert adapter.getAvailableLanguages() == ["English"]
