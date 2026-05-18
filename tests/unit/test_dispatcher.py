@@ -43,19 +43,19 @@ def test_dispatch_unknown_module_raises_attribute_error():
 
 def test_dispatch_unknown_method_on_known_module_raises():
     d, _ = _dispatcher()
-    with pytest.raises(AttributeError, match="has no method"):
+    with pytest.raises(AttributeError, match="Module 'ALMotion'.*has no method"):
         d.dispatch("ALMotion", "definitelyFake", [], {})
 
 
 def test_dispatch_blocks_underscore_prefix():
     d, _ = _dispatcher()
-    with pytest.raises(AttributeError, match="is private"):
+    with pytest.raises(AttributeError, match="Module 'ALMotion'.*is private"):
         d.dispatch("ALMotion", "_secret", [], {})
 
 
 def test_dispatch_blocks_loadrobot():
     d, _ = _dispatcher()
-    with pytest.raises(AttributeError, match="is blocked"):
+    with pytest.raises(AttributeError, match="Module 'ALMotion'.*is blocked"):
         d.dispatch("ALMotion", "loadRobot", [], {})
 
 

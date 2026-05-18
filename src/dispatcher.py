@@ -26,10 +26,20 @@ class Dispatcher:
                 )
             target = args[0]
             inner_args = args[1:]
-            result = adapter.post(target, *inner_args, **kwargs)
+            try:
+                result = adapter.post(target, *inner_args, **kwargs)
+            except AttributeError as e:
+                raise AttributeError(
+                    "Module {!r}: {}".format(module, e)
+                )
             return result, False
 
-        handler = getattr(adapter, method)
+        try:
+            handler = getattr(adapter, method)
+        except AttributeError as e:
+            raise AttributeError(
+                "Module {!r}: {}".format(module, e)
+            )
         result = handler(*args, **kwargs)
         is_stub = getattr(handler, "_sim_stub", False)
         return result, is_stub

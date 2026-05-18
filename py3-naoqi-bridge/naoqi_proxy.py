@@ -63,7 +63,7 @@ class NaoqiClient:
                         "{}.{} is a sim stub (no qibullet equivalent); "
                         "returning {!r}".format(module, method, response_data.get("result")),
                         SimStubWarning,
-                        stacklevel=4,
+                        stacklevel=3,
                     )
                 if response.status == 200:
                     return True, response_data.get("result"), None

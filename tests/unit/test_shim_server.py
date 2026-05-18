@@ -67,7 +67,9 @@ def test_unknown_method_returns_500():
         "args": [], "kwargs": {},
     })
     assert resp.status_code == 500
-    assert "has no method" in resp.get_json()["error"]
+    error = resp.get_json()["error"]
+    assert "Module 'ALMotion'" in error
+    assert "has no method" in error
 
 
 def test_missing_module_key_returns_400():

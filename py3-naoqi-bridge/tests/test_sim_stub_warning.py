@@ -83,3 +83,15 @@ def test_error_filter_raises_on_stub():
             warnings.simplefilter("error", SimStubWarning)
             with pytest.raises(SimStubWarning):
                 client.ALMotion.wakeUp()
+                
+def test_warning_points_at_caller_source_line():
+    """Asserts the warning's reported filename is the caller's file, not naoqi_proxy.py."""
+    with _fake_urlopen({"result": None}, headers={"X-Sim-Stub": "1"}):
+        client = NaoqiClient(warn_on_stubs=True)
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            client.ALMotion.wakeUp()
+        sim_warnings = [w for w in recorded if issubclass(w.category, SimStubWarning)]
+        assert len(sim_warnings) == 1
+        assert "test_sim_stub_warning.py" in sim_warnings[0].filename
+        assert "naoqi_proxy.py" not in sim_warnings[0].filename

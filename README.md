@@ -55,6 +55,14 @@ export PEPPERBOX_ACCEPT_SOFTBANK_LICENSE=1
 
 The relevant licence files ship with the qiBullet package; see the project at `softbankrobotics-research/qibullet`.
 
+To show the PyBullet GUI window on launch:
+
+```bash
+QIBULLET_GUI=true ./run.sh
+```
+
+By default PepperBox ships with the simulator set to headless.
+
 ## Build
 
 ```bash
@@ -82,13 +90,18 @@ PepperBox/
 ├── entrypoint.sh           # mode dispatch + pre-flight checks
 ├── run.sh                  # standalone host launcher
 ├── setup.sh                # one-shot pynaoqi installer
-├── src/
-│   ├── shim_server.py      # qiBullet (sim) shim
+├── src/                    # qiBullet (sim) backend
+│   ├── shim_server.py      # Flask route + create_app factory
+│   ├── dispatcher.py       # per-module dispatch returning (result, is_stub)
+│   ├── driver.py           # QiBulletDriver sim lifecycle
+│   ├── post_tasks.py       # TaskRegistry for NAOqi post() async dispatch
+│   ├── adapters/           # per-module NAOqi adapters (motion, memory, ...)
 │   └── setup_wizard.py     # qiBullet asset installer
-└── py3-naoqi-bridge/
-    ├── shim_server.py      # pynaoqi (physical) shim
+└── py3-naoqi-bridge/        # pynaoqi (physical) backend + shared Python 3 client
+    ├── shim_server.py       # pynaoqi (physical) shim
+    ├── naoqi_proxy.py       # NaoqiClient — used against both shims
     ├── video_streamer.py
-    └── ...                 # NAOqi-side services
+    └── ...                  # NAOqi-side services and clients
 ```
 
 ## Licence
