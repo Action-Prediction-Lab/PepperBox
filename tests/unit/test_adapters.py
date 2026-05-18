@@ -249,3 +249,76 @@ def test_motion_wait_delegates_to_registry():
     fake_id = registry.submit_sync(lambda: None, (), {})
     assert adapter.wait(fake_id, 5000) is True
     assert adapter.wait(99999, 5000) is False
+
+
+# --- ALMemoryAdapter ---
+
+from adapters.memory import ALMemoryAdapter
+
+
+def _memory_adapter():
+    return ALMemoryAdapter(MagicMock(), TaskRegistry())
+
+
+def test_memory_getdata_front_sonar_returns_min_laser():
+    adapter = _memory_adapter()
+    adapter._pepper.getFrontLaserValue.return_value = [3.0, 2.5, 4.0]
+    result = adapter.getData("Device/SubDeviceList/Platform/Front/Sonar/Sensor/Value")
+    assert result == 2.5
+
+
+def test_memory_getdata_back_sonar_returns_min_of_left_plus_right():
+    adapter = _memory_adapter()
+    adapter._pepper.getLeftLaserValue.return_value = [3.0, 2.8]
+    adapter._pepper.getRightLaserValue.return_value = [2.4, 3.5]
+    result = adapter.getData("Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value")
+    assert result == 2.4
+
+
+def test_memory_getdata_front_sonar_empty_returns_max_range():
+    adapter = _memory_adapter()
+    adapter._pepper.getFrontLaserValue.return_value = []
+    result = adapter.getData("Device/SubDeviceList/Platform/Front/Sonar/Sensor/Value")
+    assert result == 3.0
+
+
+def test_memory_getdata_back_sonar_empty_returns_max_range():
+    adapter = _memory_adapter()
+    adapter._pepper.getLeftLaserValue.return_value = []
+    adapter._pepper.getRightLaserValue.return_value = []
+    result = adapter.getData("Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value")
+    assert result == 3.0
+
+
+def test_memory_getdata_laser_front_returns_raw_array():
+    adapter = _memory_adapter()
+    adapter._pepper.getFrontLaserValue.return_value = [1.0, 2.0, 3.0]
+    result = adapter.getData("Device/SubDeviceList/Platform/Laser/Front/Sensor/Value")
+    assert result == [1.0, 2.0, 3.0]
+
+
+def test_memory_getdata_landmark_returns_empty_detection():
+    adapter = _memory_adapter()
+    result = adapter.getData("LandmarkDetected", 0)
+    assert result == [0, [], 0]
+
+
+def test_memory_getdata_unknown_key_returns_none():
+    adapter = _memory_adapter()
+    assert adapter.getData("SomeRandomKey") is None
+
+
+def test_memory_getlistdata_routes_each_key():
+    adapter = _memory_adapter()
+    adapter._pepper.getFrontLaserValue.return_value = [2.0]
+    result = adapter.getListData([
+        "Device/SubDeviceList/Platform/Front/Sonar/Sensor/Value",
+        "UnknownKey",
+    ])
+    assert result == [2.0, None]
+
+
+def test_memory_insertdata_is_stub():
+    adapter = _memory_adapter()
+    assert adapter.insertData("key", "value") is None
+    adapter._pepper.insertData.assert_not_called()
