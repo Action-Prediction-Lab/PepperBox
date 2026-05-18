@@ -2,12 +2,12 @@
 
 A containerised backend for developing applications with Aldebaran/SoftBank's Pepper robots.
 
-A single image runs both modes; the `NAOQI_IP` environment variable selects whether you connect with a:
+Switch between modes by setting `NAOQI_IP` and `NAOQI_PORT` in your environment before launching `./run.sh`:
 
-- **Physical robot** — `NAOQI_IP=<robot.ip>` runs the Python 2 `pynaoqi` bridge.
-- **Simulation** — `NAOQI_IP=127.0.0.1` (or unset) runs the Python 3 `qiBullet` simulator.
+- **Robot** `NAOQI_IP=<robot.ip>` and `NAOQI_PORT=9559` runs the Python 2 `pynaoqi` bridge.
+- **Simulation** `NAOQI_IP=127.0.0.1` (or unset) runs the Python 3 `qiBullet` simulator.
 
-In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code (see [`py3-naoqi-bridge/README.md`](py3-naoqi-bridge/README.md) for the wire contract and `NaoqiClient` reference). The client is agnostic to whether you connect to a physical or simulated robot. 
+The client is agnostic to whether you connect to a physical or simulated robot. In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code (see [`py3-naoqi-bridge/README.md`](py3-naoqi-bridge/README.md) for the wire contract and `NaoqiClient` reference).
 
 ## What's in the image
 
