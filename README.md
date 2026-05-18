@@ -7,7 +7,7 @@ A single image runs both modes; the `NAOQI_IP` environment variable selects whet
 - **Physical robot** — `NAOQI_IP=<robot.ip>` runs the Python 2 `pynaoqi` bridge.
 - **Simulation** — `NAOQI_IP=127.0.0.1` (or unset) runs the Python 3 `qiBullet` simulator.
 
-In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code. The client is agnostic to whether you connect to a physical or simulated robot. 
+In both cases a Flask **shim server** on port 5000 exposes a unified HTTP API to your Python 3 client code (see [`py3-naoqi-bridge/README.md`](py3-naoqi-bridge/README.md) for the wire contract and `NaoqiClient` reference). The client is agnostic to whether you connect to a physical or simulated robot. 
 
 ## What's in the image
 
