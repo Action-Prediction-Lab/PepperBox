@@ -37,7 +37,7 @@ docker run -it --rm \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v $(pwd)/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge \
     -v $(pwd)/src:/home/pepperdev/src \
-    -v $(pwd)/.qibullet:/home/pepperdev/.qibullet \
+    -v pepperbox-qibullet-cache:/home/pepperdev/.qibullet \
     "${PYNAOQI_MOUNT[@]}" \
     $DOCKER_ARGS \
     --name pepper-qibullet \
