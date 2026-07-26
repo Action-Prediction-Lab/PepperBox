@@ -5,11 +5,9 @@ import threading
 from flask import Flask, request, jsonify
 from naoqi import ALProxy
 
-# --- Thread-Safety Fix ---
-# A lock to make the global PROXY_CACHE thread-safe
+# Guards PROXY_CACHE; Flask serves requests on multiple threads.
 PROXY_LOCK = threading.Lock()
 
-# --- Configuration ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
 env_file_path = os.path.join(script_dir, 'robot.env')
 try:
@@ -17,7 +15,7 @@ try:
         for line in f:
             if line.strip() and not line.startswith('#'):
                 key, value = line.strip().split('=', 1)
-                # Only load from file if NOT already set in environment (Docker priority)
+                # Environment takes precedence over robot.env (Docker priority).
                 if key not in os.environ:
                     os.environ[key] = value
     print("Loaded configuration from {}".format(env_file_path))
@@ -29,17 +27,14 @@ app = Flask(__name__)
 ROBOT_IP = os.getenv("NAOQI_IP", "127.0.0.1")
 ROBOT_PORT = int(os.getenv("NAOQI_PORT", 9559))
 
-# --- PERFORMANCE FIX: Global Proxy Cache ---
-# This prevents re-connecting 1000 times per second
+# One cached ALProxy per module; reconnecting per request is far too slow.
 PROXY_CACHE = {}
 
 def get_proxy(module_name):
     with PROXY_LOCK:
-        global PROXY_CACHE
         if module_name in PROXY_CACHE:
             return PROXY_CACHE[module_name]
         
-        # Create new connection only if needed
         py2_module_name = module_name.encode('utf-8')
         py2_robot_ip = str(ROBOT_IP)
         
@@ -80,10 +75,8 @@ def call_naoqi_method():
     kwargs = data.get("kwargs", {})
 
     try:
-        # 1. Get Cached Proxy (Fast!)
         proxy = get_proxy(module_name)
 
-        # 2. Handle 'post' or standard calls
         if method_name == "post":
             if not args:
                 raise ValueError("post requires method name as first arg")
