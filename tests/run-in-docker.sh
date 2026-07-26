@@ -1,9 +1,7 @@
 #!/bin/bash
 # Run pytest inside the pepper-box container.
 #
-# Mounts the working tree (src/, tests/, py3-naoqi-bridge/) over the image's
-# copies so that we test the current code. Installs pytest at startup
-# because the runtime image keeps test deps out.
+# Mounts the working tree (src/, tests/, py3-naoqi-bridge/) over the image's copies and installs pytest, which the runtime image omits.
 #
 # Usage: ./tests/run-in-docker.sh [pytest-args...]
 #   ./tests/run-in-docker.sh tests/unit/ -v

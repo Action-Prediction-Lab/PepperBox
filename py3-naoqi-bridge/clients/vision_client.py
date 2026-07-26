@@ -12,7 +12,7 @@ class VisionClient(threading.Thread):
         self.running = False
         self.lock = threading.Lock()
         self.callback = None
-        self.daemon = True  # Daemonize thread to kill it with main process
+        self.daemon = True
 
     def start_receiving(self, callback):
         """Register a callback(timestamp, img_bgr) to be called on new frames."""
@@ -41,7 +41,7 @@ class VisionClient(threading.Thread):
         
         while self.running:
             try:
-                # DRAIN QUEUE: Read all available frames, keep only the last one
+                # Drain the queue, keeping only the newest frame.
                 last_msg = None
                 while socket.poll(0):
                     last_msg = socket.recv_multipart()
@@ -66,8 +66,7 @@ class VisionClient(threading.Thread):
                     # Invalid msg
                     continue
                         
-                # Decode
-                # Assume QVGA (320x240) YUV422 or Grey
+                # Decode assumes QVGA (320x240) YUV422 or Grey.
                 w, h = 320, 240
                 img_bgr = None
                 

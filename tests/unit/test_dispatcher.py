@@ -6,7 +6,7 @@ from adapters import build_module_adapters
 
 
 def _dispatcher():
-    # Create a mock with spec of known methods so hasattr works correctly.
+    # spec lists the known pepper methods so hasattr answers correctly.
     pepper = MagicMock(spec=[
         'move', 'moveToward', 'moveTo', 'stopMove', 'getPosition',
         'getAnglesPosition', 'setAngles', 'getRobotPosition',

@@ -1,5 +1,4 @@
 import threading
-import pytest
 from post_tasks import TaskRegistry
 
 

@@ -1,30 +1,43 @@
-import sys
-import os
-import time
+"""Integration guard: sonar and laser readings have the right shape and a live range.
 
-# Add the bridge folder to path so we can import modules from it
-bridge_path = os.path.join(os.path.dirname(__file__), "..", "py3-naoqi-bridge")
-sys.path.append(bridge_path)
+Requires a running shim (./run.sh). Run as a script or under pytest.
+"""
+from guard import Guard, connect, shim_reachable, main
 
-from naoqi_proxy import NaoqiClient
+try:
+    import pytest
+    pytestmark = pytest.mark.skipif(not shim_reachable(), reason="requires a running shim")
+except ImportError:
+    pass
+
+MAX_RANGE_M = 3.0
+LASER_RAYS = 15
+
+FRONT = "Device/SubDeviceList/Platform/Front/Sonar/Sensor/Value"
+BACK = "Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value"
+LASER_FRONT = "Device/SubDeviceList/Platform/Laser/Front/Sensor/Value"
+
 
 def test_sonar():
-    print("Connecting to PepperBox Shim (Sonar Test)...")
-    client = NaoqiClient()
-    
-    print("Reading Sonar Values...")
-    # Front Sonar
-    front = client.ALMemory.getData("Device/SubDeviceList/Platform/Front/Sonar/Sensor/Value")
-    print(f"Front Sonar: {front} meters")
-    
-    # Back Sonar
-    back = client.ALMemory.getData("Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value")
-    print(f"Back Sonar:  {back} meters")
-    
-    if front is not None and back is not None:
-        print("\nSUCCESS: Sonar values received (simulated via Laser).")
-    else:
-        print("\nFAILURE: One or more sonar values were None.")
+    g = Guard("sonar")
+    client = connect()
+    client.ALLaser.show(True)
+
+    for label, key in (("front", FRONT), ("back", BACK)):
+        value = client.ALMemory.getData(key)
+        # 0.0 is what an unscanned laser reports, indistinguishable from an obstacle at contact.
+        g.check(f"{label} sonar is a live range",
+                isinstance(value, float) and 0.0 < value <= MAX_RANGE_M, f"{value}")
+
+    rays = client.ALMemory.getData(LASER_FRONT)
+    g.check("front laser returns a list", isinstance(rays, list), f"{type(rays).__name__}")
+    if isinstance(rays, list):
+        g.check(f"front laser returns {LASER_RAYS} rays", len(rays) == LASER_RAYS, f"{len(rays)}")
+        g.check("laser rays are floats in range",
+                all(isinstance(r, float) and 0.0 <= r <= MAX_RANGE_M for r in rays))
+
+    g.finish()
+
 
 if __name__ == "__main__":
-    test_sonar()
+    main(test_sonar)

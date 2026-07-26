@@ -1,37 +1,75 @@
-import sys
-import os
-import time
+"""Integration guard: odometry tracks commanded rotation and translation, and motion stops.
 
-# Add the bridge folder to path so we can import modules from it
-bridge_path = os.path.join(os.path.dirname(__file__), "..", "py3-naoqi-bridge")
-sys.path.append(bridge_path)
+Requires a running shim (./run.sh). Run as a script or under pytest.
+"""
+import math
 
-from naoqi_proxy import NaoqiClient
+from guard import (Guard, connect, main, shim_reachable, spin_until, wait_until_still,
+                   wrap_angle)
 
-def test_odom_vis():
-    print("Connecting to PepperBox Shim (Odom & Vis Test)...")
-    client = NaoqiClient()
-    
-    print("\n1. Enabling Laser Visualization (Check Simulator Window!)...")
-    # Using our custom ALLaser module
+try:
+    import pytest
+    pytestmark = pytest.mark.skipif(not shim_reachable(), reason="requires a running shim")
+except ImportError:
+    pass
+
+SPIN_RAD_S = 0.5
+MIN_SPIN_RAD = 0.05
+TURN_RAD = 0.8
+TURN_TOL_RAD = 0.08
+STEP_M = 0.4
+STEP_TOL_M = 0.05
+
+
+def test_odom():
+    g = Guard("odom")
+    client = connect()
     client.ALLaser.show(True)
-    
-    print("2. Monitoring Odometry while rotating...")
-    # Start rotating
-    client.ALMotion.move(0.0, 0.0, 0.5)
-    
-    try:
-        for i in range(10):
-            # getRobotPosition(useSensors) -> [x, y, theta]
-            pos = client.ALMotion.getRobotPosition(True)
-            print(f"Odom: X={pos[0]:.3f}, Y={pos[1]:.3f}, Theta={pos[2]:.3f}")
-            time.sleep(0.5)
-            
-    finally:
-        print("Stopping...")
-        client.ALMotion.stopMove()
-        # Optionally turn off lasers
-        # client.ALLaser.show(False)
+
+    # Hold a velocity until the base actually turns; the sim steps as its thread is scheduled, so a timed command covers a host-dependent angle.
+    client.ALMotion.move(0.0, 0.0, SPIN_RAD_S)
+    spun = spin_until(client, MIN_SPIN_RAD)
+    client.ALMotion.stopMove()
+    g.check("velocity command rotates the base", spun >= MIN_SPIN_RAD, f"dtheta={spun:.3f}rad")
+    g.stationary(client, "base halts after a rotation")
+
+    # Unwind so repeated runs do not leave the base at a random heading.
+    client.ALMotion.move(0.0, 0.0, -SPIN_RAD_S)
+    spin_until(client, spun)
+    client.ALMotion.stopMove()
+
+    # moveTo is robot-frame, so measuring mid-turn traces a curve and under-reports; assert the precondition.
+    g.check("base still before closed-loop moves", wait_until_still(client))
+
+    # moveTo is a displacement command, so the angle achieved does not depend on sim speed.
+    before_theta = client.ALMotion.getRobotPosition(True)[2]
+    client.ALMotion.moveTo(0.0, 0.0, TURN_RAD)
+    g.check("rotation settles", wait_until_still(client))
+    turned = wrap_angle(client.ALMotion.getRobotPosition(True)[2] - before_theta)
+    g.check("moveTo turns by the commanded angle", abs(turned - TURN_RAD) <= TURN_TOL_RAD,
+            f"turned={turned:.3f}rad commanded={TURN_RAD}rad")
+    client.ALMotion.moveTo(0.0, 0.0, -turned)
+    wait_until_still(client)
+
+    # Translation must register a displacement of roughly the commanded distance.
+    before = client.ALMotion.getRobotPosition(True)
+    client.ALMotion.moveTo(STEP_M, 0.0, 0.0)
+    g.check("translation settles", wait_until_still(client))
+    after = client.ALMotion.getRobotPosition(True)
+    moved = math.hypot(after[0] - before[0], after[1] - before[1])
+    g.check("moveTo travels the commanded distance", abs(moved - STEP_M) <= STEP_TOL_M,
+            f"moved={moved:.3f}m commanded={STEP_M}m")
+    g.check("translation holds heading", abs(wrap_angle(after[2] - before[2])) < 0.2,
+            f"dtheta={wrap_angle(after[2] - before[2]):.3f}rad")
+
+    # Step back by the distance actually measured, then confirm nothing is still driving.
+    client.ALMotion.moveTo(-moved, 0.0, 0.0)
+    wait_until_still(client)
+    client.ALMotion.stopMove()
+    g.stationary(client, "base left stationary")
+
+    g.finish()
+
 
 if __name__ == "__main__":
-    test_odom_vis()
+    main(test_odom)

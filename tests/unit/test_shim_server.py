@@ -1,5 +1,4 @@
 from unittest.mock import MagicMock
-import pytest
 from shim_server import create_app
 from post_tasks import TaskRegistry
 from adapters import build_module_adapters
@@ -109,8 +108,7 @@ def test_post_dispatch_returns_task_id():
 
 
 def test_call_with_omitted_kwargs_uses_empty_dict_default():
-    """Verifies the route's data.get('kwargs', {}) default. Callers that
-    don't send a kwargs key (e.g. curl users) still work."""
+    """The route's data.get('kwargs', {}) default lets callers omit the kwargs key."""
     client, pepper = _client()
     resp = client.post("/api/call", json={
         "module": "ALMotion", "method": "move",

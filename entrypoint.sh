@@ -12,9 +12,7 @@ fi
 
 if [ "$MODE" = "true" ]; then
     echo "[Entrypoint] Starting SIMULATION (qibullet)..."
-    # Auto-seed the qibullet asset cache if the URDF is missing. The cache
-    # lives at $HOME/.qibullet and is persisted by a volume mount; the
-    # installer writes into a version subdirectory (e.g. 1.4.3/).
+    # Auto-seed the qibullet cache ($HOME/.qibullet, volume-mounted) if pepper.urdf is missing; the installer writes a version subdirectory (e.g. 1.4.3/).
     if ! ls "$HOME/.qibullet"/*/pepper.urdf >/dev/null 2>&1; then
         echo "[Entrypoint] qibullet assets missing; seeding via setup_wizard.py..."
         if ! python3 src/setup_wizard.py; then
@@ -24,7 +22,8 @@ if [ "$MODE" = "true" ]; then
             exit 1
         fi
     fi
-    python3 src/shim_server.py
+    # exec so the shim is PID 1 and gets SIGTERM; bash never forwards it to a foreground child.
+    exec python3 src/shim_server.py
 else
     echo "[Entrypoint] Starting PHYSICAL ROBOT Bridge (pynaoqi)..."
     echo "   - Target: $NAOQI_IP:$NAOQI_PORT"
@@ -34,10 +33,7 @@ else
         cat >&2 <<EOF
 [Entrypoint] ERROR: pynaoqi SDK not mounted
 
-The physical-robot bridge needs SoftBank Robotics' pynaoqi mounted at
-/opt/pynaoqi-python2.7-2.5.7.1-linux64 inside the container. Default host
-location is \$HOME/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64, populated by
-running ./setup.sh on the host.
+The physical-robot bridge needs SoftBank Robotics' pynaoqi mounted at /opt/pynaoqi-python2.7-2.5.7.1-linux64 inside the container. The default host location is \$HOME/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64, populated by running ./setup.sh on the host.
 
 Looked for: $NAOQI_PY
 EOF
@@ -45,9 +41,7 @@ EOF
     fi
 
     NAOQI_PORT=${NAOQI_PORT:-9559}
-    # 20s tolerance: Pepper's onboard 2.4 GHz WiFi can introduce 5-50ms RTT
-    # variance and intermittent packet loss at any moment. A short timeout
-    # produces spurious pre-flight failures on real-world lab conditions.
+    # 20s tolerance: Pepper's 2.4 GHz WiFi adds 5-50ms RTT variance and packet loss, so a short timeout fails pre-flight spuriously.
     if ! python2 -c "
 import socket, sys
 s = socket.socket()
@@ -61,8 +55,7 @@ except Exception as exc:
         cat >&2 <<EOF
 [Entrypoint] ERROR: cannot reach NAOqi at $NAOQI_IP:$NAOQI_PORT
 
-Check: robot powered on, on the same network, NAOQI_IP / NAOQI_PORT correct
-in robot.env, and no firewall between the host and the robot.
+Check: robot powered on, on the same network, NAOQI_IP / NAOQI_PORT correct in robot.env, and no firewall between the host and the robot.
 EOF
         exit 1
     fi

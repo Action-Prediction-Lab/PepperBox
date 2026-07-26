@@ -1,5 +1,4 @@
-"""ALLaser adapter. PepperBox-custom NAOqi module name; maps to qibullet's
-laser debug-line visualisation."""
+"""ALLaser adapter: a PepperBox-invented NAOqi module name mapped to qibullet's laser debug lines."""
 
 from .base import GenericAdapter
 

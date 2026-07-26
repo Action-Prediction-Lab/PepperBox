@@ -10,10 +10,7 @@ class NaoqiProxyError(Exception):
 
 
 class SimStubWarning(UserWarning):
-    """Triggered when the sim shim returns a stub (no-op) response and the
-    client has opted into stub-aware warnings via `warn_on_stubs=True` or
-    the `NAOQI_SIM_WARN_STUBS=1` env var."""
-
+    """Triggered when the sim shim returns a stub (no-op) response and the client opted in via `warn_on_stubs=True` or the `NAOQI_SIM_WARN_STUBS=1` env var."""
 
 class NaoqiModule:
     def __init__(self, client, module_name):
@@ -81,7 +78,7 @@ class NaoqiClient:
         except json.JSONDecodeError:
             return False, None, "Failed to decode JSON response from shim server."
         except SimStubWarning:
-            # Let SimStubWarning propagate even if it's been turned into an errorbby the warnings filter.
+            # Propagate SimStubWarning even when the warnings filter raises it as an error.
             raise
         except Exception as e:
             return False, None, f"An unexpected error occurred: {e}"

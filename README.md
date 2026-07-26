@@ -1,6 +1,6 @@
 # PepperBox
 
-PepperBox is a containerised gateway to the Pepper robot, wrapping legacy Python 2 NAOqi dependencies behind a modern HTTP and ZMQ API so researchers can deploy reproducibly and build applications for Pepper in modern Python 3.
+PepperBox is a containerised gateway to the Pepper robot, wrapping legacy Python 2 NAOqi dependencies behind a modern HTTP and ZMQ API so developers and researchers can deploy reproducibly and build applications for Pepper in modern Python 3.
 
 PepperBox bundles the `qibullet` simulator, so you can develop without a physical Pepper and run automated experiments headlessly.
 

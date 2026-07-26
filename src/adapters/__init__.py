@@ -1,9 +1,8 @@
-"""Module adapter registry. `build_module_adapters` returns a fresh dict
-of `module_name -> adapter` for the dispatcher to use. Construct one set
-of adapters per shim process; they hold mutable refs to pepper and the
-task registry."""
+"""Module adapter registry.
 
-from .base import GenericAdapter, StubAdapter
+`build_module_adapters` returns a fresh `module_name -> adapter` dict; build one set per shim process, since adapters hold mutable refs to pepper and the task registry."""
+
+from .base import StubAdapter
 from .motion import ALMotionAdapter
 from .memory import ALMemoryAdapter
 from .posture import ALRobotPostureAdapter
@@ -21,9 +20,9 @@ def build_module_adapters(pepper, task_registry):
         "ALRobotPosture": ALRobotPostureAdapter(pepper, task_registry),
         "ALLaser": ALLaserAdapter(pepper, task_registry),
         "ALTextToSpeech": tts,
-        "ALAnimatedSpeech": tts,  # same surface; reuse the same instance
+        "ALAnimatedSpeech": tts,  
 
-        # Pure-stub modules (every method returns the default).
+        # Stub modules (every method returns the default).
         "ALAnimationPlayer": StubAdapter(default=None, task_registry=task_registry),
         "ALAutonomousLife": StubAdapter(
             default=None,

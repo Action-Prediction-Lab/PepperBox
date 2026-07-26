@@ -33,8 +33,7 @@ class StateClient(threading.Thread):
             try:
                 if socket.poll(100):
                     topic, data = socket.recv_multipart()
-                    # Unpack: timestamp (double), yaw (float), pitch (float)
-                    # format 'dff' is 16 bytes
+                    # Unpack 'dff' (16 bytes): timestamp double, yaw float, pitch float.
                     if len(data) == 16:
                         ts, yaw, pitch = struct.unpack('dff', data)
                         with self.lock:
@@ -47,10 +46,7 @@ class StateClient(threading.Thread):
         context.term()
         
     def get_state_at(self, query_time):
-        """
-        Returns (yaw, pitch) interpolated at query_time.
-        Returns None if query_time is too old or too new (out of buffer range).
-        """
+        """Returns (yaw, pitch) interpolated at query_time, or None when query_time predates the buffer."""
         with self.lock:
             if not self.buffer:
                 return None
@@ -60,13 +56,11 @@ class StateClient(threading.Thread):
             
             # Check bounds (allowing 50ms slack)
             if query_time < timestamps[0] - 0.05:
-                # Too old
                 return None 
             if query_time > timestamps[-1] + 0.05:
-                # Too new (future?)
-                return self.buffer[-1][1:] # Return latest
+                # Too new: clamp to the latest sample.
+                return self.buffer[-1][1:]
                 
-            # Find insertion point
             idx = bisect.bisect_right(timestamps, query_time)
             
             if idx == 0:
@@ -74,7 +68,6 @@ class StateClient(threading.Thread):
             if idx == len(timestamps):
                 return self.buffer[-1][1:]
                 
-            # Interpolate
             t0, y0, p0 = self.buffer[idx-1]
             t1, y1, p1 = self.buffer[idx]
             
