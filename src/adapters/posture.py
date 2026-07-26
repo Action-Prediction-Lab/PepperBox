@@ -1,6 +1,4 @@
-"""ALRobotPosture adapter. Direct passthrough to qibullet's goToPosture,
-which returns False for postures qibullet doesn't model (Sit, SitRelax,
-LyingBelly, LyingBack)."""
+"""ALRobotPosture adapter: passthrough to qibullet's goToPosture, which returns False for Sit, SitRelax, LyingBelly and LyingBack."""
 
 from .base import GenericAdapter
 

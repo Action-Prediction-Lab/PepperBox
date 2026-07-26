@@ -1,23 +1,17 @@
-# test_motion.py
 import os
 import sys
 
-# Add the parent directory to the path to find the 'naoqi_proxy' module
+# Parent directory on the path so 'naoqi_proxy' imports.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from naoqi_proxy import NaoqiClient, NaoqiProxyError
 
-# --- Connection Settings ---
-# The shim server runs on localhost inside the container.
-# The Robot IP is configured in the shim_server's environment.
+# Shim runs on localhost inside the container; robot IP comes from its environment.
 NAOQI_SHIM_IP = "127.0.0.1"
 NAOQI_SHIM_PORT = 5000
 
 def run_test():
-    """
-    Connects to the Naoqi proxy and attempts to call methods
-    that previously failed with nested arguments.
-    """
+    """Calls Naoqi proxy methods that take nested arguments."""
     print("--- Starting Naoqi proxy test ---")
     print("Connecting to Shim Server: {}:{}".format(NAOQI_SHIM_IP, NAOQI_SHIM_PORT))
     print("Target Robot IP is configured in the shim server's environment (NAOQI_IP).")
@@ -29,8 +23,7 @@ def run_test():
         client = NaoqiClient(host=NAOQI_SHIM_IP, port=NAOQI_SHIM_PORT)
         print("Successfully connected to proxy.")
 
-        # --- Test 1: ALMotion.setBreathConfig ---
-        # This call uses a list of lists, which previously failed.
+        # setBreathConfig takes a list of lists.
         breath_config = [
             ['Bpm', 15.0],
             ['Amplitude', 0.9]
@@ -39,8 +32,7 @@ def run_test():
         client.ALMotion.setBreathConfig(breath_config)
         print("ALMotion.setBreathConfig call succeeded.")
 
-        # --- Test 2: ALMotion.setAngles ---
-        # This call uses a list of joint names (strings).
+        # setAngles takes a list of joint-name strings.
         joint_names = ["RShoulderPitch", "RShoulderRoll"]
         angles = [0.5, 0.5]
         speed = 0.1

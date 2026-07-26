@@ -1,8 +1,7 @@
 import os
 import sys
 
-# Add `src/` to sys.path so imports work in test files. Matches the
-# runtime invocation pattern: `python3 src/shim_server.py`.
+# Add `src/` to sys.path, matching the runtime invocation `python3 src/shim_server.py`.
 _SRC = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "src")
 )

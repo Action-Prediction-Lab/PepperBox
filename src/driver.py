@@ -1,7 +1,4 @@
-"""This is the qibullet sim lifecycle owner.
-
-Holds the simulation and the Pepper instance the adapters dispatch against.
-Adapters call into `self.pepper` directly."""
+"""qibullet sim lifecycle owner: holds the simulation and the `pepper` instance adapters dispatch against."""
 
 from qibullet import SimulationManager
 

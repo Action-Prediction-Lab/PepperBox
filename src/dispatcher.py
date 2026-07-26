@@ -1,11 +1,6 @@
 """Dispatcher: looks up the per-module adapter and forwards calls.
 
-Returns (result, is_stub) so the Flask layer can set the X-Sim-Stub header
-without inspecting adapter internals.
-
-Raises AttributeError for unknown modules, unknown methods on known
-modules, blocked names, and private names. The shim's route handler turns
-AttributeError into HTTP 500 with the exception's message as the error body.
+Returns (result, is_stub) for the X-Sim-Stub header, and raises AttributeError for unknown, blocked or private names, which the route turns into HTTP 500 carrying the message.
 """
 
 

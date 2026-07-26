@@ -1,12 +1,6 @@
 """Task registry for the sim shim's `post` dispatch.
 
-NAOqi's `post` returns a task ID that callers later query via `wait` or
-`getCurrentPosition`. qibullet has no async dispatch, so we run targets
-synchronously and treat the resulting state as "already done".
-
-Monotonic int IDs (never reused) so a slow caller's stale task_id never
-aliases to a new task. LRU-bounded storage (default 100k) caps memory in
-long-running sim sessions.
+qibullet has no async dispatch, so `submit_sync` runs targets synchronously and reports "already done" to `wait`, with monotonic never-reused int IDs in LRU-bounded storage (default 100k).
 """
 
 import threading
@@ -15,7 +9,7 @@ from collections import OrderedDict
 
 class TaskRegistry:
     MAX_ENTRIES = 100_000
-    # LRU-bounded storage is hardcoded and not tunable from in config. Not a priority until this is blocking. 
+    # Hardcoded; making it config-tunable is deferred until it blocks something.
 
     def __init__(self):
         self._lock = threading.Lock()

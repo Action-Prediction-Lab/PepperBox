@@ -8,7 +8,6 @@ import json
 import math
 from naoqi import ALProxy
 
-# --- Configuration Loader ---
 import argparse
 
 RATE_JOINTS = 50.0  # 50Hz for control loop
@@ -28,8 +27,7 @@ def get_config():
     return args
 
 def get_proximity_keys():
-    # --- 1. Sonar ---
-    # Try Modern 2.5 keys first, then Platform fallback
+    # Sonar: NAOqi 2.5 keys first, Platform keys as fallback.
     sonar_keys = [
         "Device/SubDeviceList/US/FrontLeft/Sensor/Value",
         "Device/SubDeviceList/US/FrontRight/Sensor/Value",
@@ -41,21 +39,19 @@ def get_proximity_keys():
         "Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value"
     ]
     
-    # --- 2. Lasers ---
-    # Traditional Laser
+    # Traditional laser: 15 horizontal values per side.
     laser_keys = []
     for loc in ["Front", "Left", "Right"]:
         for i in range(15):
             laser_keys.append("Device/SubDeviceList/Laser/{}/Horizontal/Sensor/Value{}".format(loc, i))
     
-    # Platform Segment Laser (Found on some specific firmwares)
+    # Platform segment laser, present on some firmwares only.
     laser_platform_keys = []
     for loc in ["Front", "Left", "Right"]:
         for i in range(1, 16):
             laser_platform_keys.append("Device/SubDeviceList/Platform/LaserSensor/{}/Horizontal/Seg{:02d}/X/Sensor/Value".format(loc, i))
             laser_platform_keys.append("Device/SubDeviceList/Platform/LaserSensor/{}/Horizontal/Seg{:02d}/Y/Sensor/Value".format(loc, i))
 
-    # --- 3. Bumpers ---
     bumper_keys = [
         "Device/SubDeviceList/Platform/FrontLeft/Bumper/Sensor/Value",
         "Device/SubDeviceList/Platform/FrontRight/Bumper/Sensor/Value",
@@ -67,7 +63,6 @@ def get_proximity_keys():
 def main():
     args = get_config()
     
-    # Connect to NaoQi
     try:
         motion_proxy = ALProxy("ALMotion", args.ip, args.port)
         memory_proxy = ALProxy("ALMemory", args.ip, args.port)
@@ -75,7 +70,6 @@ def main():
         print("Error connecting to Naoqi: {}".format(e))
         sys.exit(1)
         
-    # Setup ZMQ
     context = zmq.Context()
     socket = context.socket(zmq.PUB)
     socket.bind("tcp://*:{}".format(args.zmq_port))
@@ -90,7 +84,7 @@ def main():
             start_loop = time.time()
             loop_count += 1
             
-            # --- 1. JOINT DATA (50Hz) ---
+            # Joint data on topic "joints" at 50Hz.
             try:
                 names = ["HeadYaw", "HeadPitch"]
                 angles = motion_proxy.getAngles(names, True)
@@ -101,11 +95,10 @@ def main():
             except Exception as e:
                 print("Joints Error: {}".format(e))
 
-            # --- 2. PROXIMITY DATA (~15Hz) ---
+            # Proximity data on topic "proximity" at ~15Hz.
             if loop_count % PROXIMITY_DIVIDER == 0:
                 payload = {"timestamp": start_loop, "sonar": {}, "lasers": {}, "bumpers": {}}
                 
-                # A. SONAR
                 try:
                     s_vals = memory_proxy.getListData(prox_sonar_keys)
                     if s_vals and s_vals[0] is not None:
@@ -114,10 +107,9 @@ def main():
                             "back_left": s_vals[2], "back_right": s_vals[3]
                         }
                     else:
-                        # Try fallback
                         s_vals = memory_proxy.getListData(prox_sonar_fallback)
                         if s_vals and s_vals[0] is not None:
-                            # Map 2 sonars to 4 fields (approx)
+                            # Map the 2 fallback sonars onto 4 fields (approx).
                             payload["sonar"] = {
                                 "front_left": s_vals[0], "front_right": s_vals[0],
                                 "back_left": s_vals[1], "back_right": s_vals[1]
@@ -125,7 +117,6 @@ def main():
                 except Exception:
                     pass
 
-                # B. LASERS
                 try:
                     l_vals = memory_proxy.getListData(prox_laser_keys)
                     if l_vals and l_vals[0] is not None:
@@ -133,11 +124,9 @@ def main():
                             "front": l_vals[0:15], "left": l_vals[15:30], "right": l_vals[30:45]
                         }
                     else:
-                        # Try Platform/Segment laser
                         l_vals = memory_proxy.getListData(prox_laser_platform)
                         if l_vals and l_vals[0] is not None:
-                            # We have X,Y pairs for each segment. Convert to distance.
-                            # l_vals format: [F1X, F1Y, F2X, F2Y, ..., L1X, L1Y, ..., R1X, R1Y, ...]
+                            # X,Y pairs per segment converted to distance; l_vals is [F1X, F1Y, F2X, F2Y, ..., L1X, L1Y, ..., R1X, R1Y, ...].
                             def compute_dists(start_idx):
                                 dists = []
                                 for i in range(15):
@@ -156,7 +145,6 @@ def main():
                         sys.stderr.write("Laser Error: {}\n".format(e))
                         sys.stderr.flush()
 
-                # C. BUMPERS
                 try:
                     b_vals = memory_proxy.getListData(prox_bumper_keys)
                     if b_vals:
@@ -167,10 +155,9 @@ def main():
                 except Exception:
                     pass
 
-                # Publish what we have
                 socket.send_multipart(["proximity", json.dumps(payload)])
 
-            # --- Sleep to maintain rate ---
+            # Sleep to hold the 50Hz joint rate.
             elapsed = time.time() - start_loop
             if elapsed < dt_joints:
                 time.sleep(dt_joints - elapsed)

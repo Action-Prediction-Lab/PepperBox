@@ -1,12 +1,7 @@
 # py3-naoqi-bridge/audio_publisher.py (Python 2)
 """NAOqi ALAudioDevice -> ZMQ PUB :5563.
 
-Subclass of ALModule; processRemote callback runs on a NAOqi dispatcher thread
-and enqueues audio buffers. A dedicated publisher thread owns the ZMQ socket
-and drains the queue -- ZMQ sockets are not thread-safe, so the NAOqi thread
-must never touch the socket directly.
-
-Mirrors ros-naoqi/naoqi_bridge/naoqi_sensors_py/.../naoqi_microphone.py.
+processRemote only enqueues because ZMQ sockets are not thread-safe and the publisher thread owns the socket; mirrors ros-naoqi naoqi_sensors_py/naoqi_microphone.py.
 """
 from __future__ import print_function
 import os
@@ -24,13 +19,7 @@ CALLBACK_WATCHDOG_S = 15.0
 
 
 def _resolve_bind_ip(target_ip, target_port):
-    """Local IP the kernel would use as source when sending to target.
-
-    Why: ALBroker bound to 0.0.0.0 advertises every local interface to the
-    parent broker, which then picks one (often a Docker bridge) that is not
-    routable from the robot. Binding to the specific outbound source IP forces
-    the robot to dial back on an address it can reach.
-    """
+    """Local source IP for target; ALBroker on 0.0.0.0 advertises every interface and the parent broker may pick an unroutable Docker bridge."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect((target_ip, target_port))
@@ -82,10 +71,7 @@ except ImportError:
     _NAOQI_AVAILABLE = False
 
 
-# Module-level strong reference. NaoQiModule stores instances as weakrefs; if the
-# only reference is a local variable that goes out of scope, the object is GC'd
-# and processRemote callbacks silently become no-ops. The variable name MUST
-# match the ALModule name string passed to the constructor -- Aldebaran convention.
+# Strong module-level reference: NaoQiModule keeps weakrefs, so a local-only one is GC'd and processRemote silently no-ops; the name MUST match the ALModule name string.
 PepperAudioPub = None
 
 
@@ -104,9 +90,8 @@ class AudioPublisherModule(ALModule if _NAOQI_AVAILABLE else object):
         self._audio_proxy.subscribe(self.getName())
 
     def processRemote(self, nbOfChannels, nbOfSamplesByChannel, timeStamp, inputBuffer):
-        """NAOqi audio callback. Docstring is load-bearing: ALModule.autoBind only
-        registers methods that have a non-empty __doc__, otherwise the robot cannot
-        invoke this callback and no audio ever arrives."""
+        """NAOqi audio callback; ALModule.autoBind registers only methods with a
+        non-empty __doc__, so emptying this docstring stops all audio delivery."""
         self._first_callback_checked = True
         expected = nbOfChannels * nbOfSamplesByChannel * 2
         if len(inputBuffer) != expected:
@@ -127,14 +112,7 @@ class AudioPublisherModule(ALModule if _NAOQI_AVAILABLE else object):
 
 
 def _probe_reachable(ip, port, timeout_s=3.0):
-    """Raw TCP probe: returns True if ip:port accepts a connection.
-
-    Used as a fast-fail check before constructing the ALBroker. We avoid
-    creating an ALProxy here because that would establish a default broker
-    session; subsequent ALProxy() calls inside the module would bind to it
-    instead of the broker we explicitly construct, which breaks the callback
-    routing on real hardware.
-    """
+    """Raw TCP fast-fail probe before the ALBroker is built; an ALProxy here would open a default broker session that later ALProxy calls bind to, breaking callback routing on hardware."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout_s)
     try:
