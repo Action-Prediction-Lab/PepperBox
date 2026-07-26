@@ -72,9 +72,7 @@ def test_generic_post_propagates_unknown_target():
 
 
 def test_generic_subclass_method_takes_precedence_over_fallthrough():
-    """If a subclass defines a method, it must be called instead of falling
-    through to pepper. This protects against accidentally using
-    __getattribute__ instead of __getattr__ in the base class."""
+    """A subclass method wins over the pepper fall-through (__getattr__, not __getattribute__)."""
 
     class MySubclass(GenericAdapter):
         def myMethod(self):
@@ -89,9 +87,7 @@ def test_generic_subclass_method_takes_precedence_over_fallthrough():
 
 
 def test_generic_post_forwards_multiple_args_and_kwargs():
-    """post must forward arbitrary positional and keyword arguments to the
-    target. Live callers pass complex payloads (e.g. lookAt takes a point
-    list, two floats, and a bool)."""
+    """post forwards arbitrary positional and keyword arguments to the target."""
     pepper = MagicMock()
     adapter = GenericAdapter(pepper, TaskRegistry())
     adapter.post("multiArgMethod", 1, "two", 3.0, flag=True, mode="x")
@@ -131,7 +127,12 @@ def test_stub_adapter_post_runs_stub_target():
 
 # --- ALMotionAdapter ---
 
+from adapters import motion
 from adapters.motion import ALMotionAdapter
+
+_STILL = ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+_MOVING = ([0.3, 0.0, 0.0], [0.0, 0.0, 0.0])
+_SPINNING = ([0.0, 0.0, 0.0], [0.0, 0.0, 0.5])
 
 
 def _motion_adapter():
@@ -161,11 +162,44 @@ def test_motion_moveto_forces_async():
     adapter._pepper.moveTo.assert_called_once_with(1.0, 0.0, 0.0, _async=True)
 
 
-def test_motion_stopmove_zeros_velocity():
+def test_motion_stopmove_zeros_velocity(monkeypatch):
     adapter = _motion_adapter()
+    monkeypatch.setattr(motion.pybullet, "getBaseVelocity", lambda *a, **k: _STILL)
     adapter.stopMove()
     adapter._pepper.stopMove.assert_called_once_with()
     adapter._pepper.move.assert_called_once_with(0, 0, 0)
+
+
+def test_motion_stopmove_retries_until_base_is_still(monkeypatch):
+    adapter = _motion_adapter()
+    reads = iter([_MOVING, _MOVING, _STILL])
+    monkeypatch.setattr(motion.pybullet, "getBaseVelocity", lambda *a, **k: next(reads))
+    reset = MagicMock()
+    monkeypatch.setattr(motion.pybullet, "resetBaseVelocity", reset)
+    adapter.stopMove()
+    assert adapter._pepper.move.call_count == 3
+    reset.assert_not_called()
+
+
+def test_motion_stopmove_does_not_treat_a_spin_as_stopped(monkeypatch):
+    adapter = _motion_adapter()
+    reads = iter([_SPINNING, _SPINNING, _STILL])
+    monkeypatch.setattr(motion.pybullet, "getBaseVelocity", lambda *a, **k: next(reads))
+    reset = MagicMock()
+    monkeypatch.setattr(motion.pybullet, "resetBaseVelocity", reset)
+    adapter.stopMove()
+    assert adapter._pepper.move.call_count == 3
+    reset.assert_not_called()
+
+
+def test_motion_stopmove_forces_reset_when_retries_exhausted(monkeypatch):
+    adapter = _motion_adapter()
+    monkeypatch.setattr(motion.pybullet, "getBaseVelocity", lambda *a, **k: _MOVING)
+    reset = MagicMock()
+    monkeypatch.setattr(motion.pybullet, "resetBaseVelocity", reset)
+    adapter.stopMove()
+    assert adapter._pepper.move.call_count == ALMotionAdapter.STOP_TRIES
+    reset.assert_called_once()
 
 
 def test_motion_getrobotposition_returns_list():
