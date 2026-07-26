@@ -1,6 +1,6 @@
 # Python 3 to NAOqi Bridge
 
-This directory contains the Python 2.7 "shim" server and the Python 3 "proxy" client. When put together they form a bridge to allow Python 3 applications to communicate with the `naoqi` robot SDK.
+This directory contains the Python 2.7 shim server and the Python 3 proxy client. When put together they form a bridge to allow Python 3 applications to communicate with the `naoqi` robot SDK.
 
 ## Purpose
 
@@ -10,12 +10,12 @@ The `pynaoqi` SDK is only compatible with Python 2.7. The Python 2.7 shim server
 
 *   **`shim_server.py`**: The Python 2.7 Flask server that exposes the NAOqi API via HTTP.
 *   **`naoqi_proxy.py`**: The Python 3 client library that provides an interface to interact with the shim server. Exposes the optional `warn_on_stubs` flag and `SimStubWarning` class for sim-mode introspection.
-*   **`examples/`**: Directory containing example scripts demonstrating the usage of the `NaoqiClient` (e.g., `basic_usage_example.py`, `helloworld_in_python3.py`).
-*   **`tests/`**: Unit and integration tests. `test_audio_publisher.py` covers the ZMQ audio publisher; `test_motion.py` is a scripted integration test against a running shim; `test_sim_stub_warning.py` covers the client-side opt-in warning behavior with mocked HTTP responses.
+*   **`tests/`**: Python 3 tests. `test_motion.py` is a scripted integration test against a running shim; `test_sim_stub_warning.py` covers the client-side opt-in warning behavior with mocked HTTP responses.
+*   **`tests/py2/`**: Python 2.7 tests for the shim side, which import the bridge modules with the `naoqi` SDK stubbed. `test_shim_server.py` covers the REST contract and the Py2 unicode marshalling; `test_audio_publisher.py` covers the ZMQ audio publisher. Kept separate because the two halves need different interpreters.
 
 ## Using the NaoqiClient
 
-The shim server is launched by the project-level `./run.sh` — see the top-level README for setup and configuration (`NAOQI_IP`, `NAOQI_PORT`, `robot.env`, etc.). Once the shim is running on port 5000, Python 3 code uses the `NaoqiClient` to interface.
+The shim server is launched by the project-level `./run.sh`, see the top-level README for setup and configuration (`NAOQI_IP`, `NAOQI_PORT`, `robot.env`, etc.). Once the shim is running on port 5000, Python 3 code uses the `NaoqiClient` to interface.
 
 ### Initialisation
 
@@ -49,12 +49,15 @@ Errors from the shim or the underlying NAOqi instance surface as `NaoqiProxyErro
 
 ## Testing the Bridge
 
-Unit tests for the client library and the audio publisher run inside the pepper-box container via the project-wide wrapper:
+Both halves run inside the pepper-box container, each via its own wrapper because the shim is Python 2.7 and the client library is Python 3.
 
 ```bash
-./tests/run-in-docker.sh py3-naoqi-bridge/tests/test_sim_stub_warning.py -v
-./tests/run-in-docker.sh py3-naoqi-bridge/tests/test_audio_publisher.py -v
+./tests/run-in-docker.sh py3-naoqi-bridge/tests/test_sim_stub_warning.py -v   # Python 3
+./tests/run-py2-in-docker.sh                                                 # Python 2, all of tests/py2
+./tests/run-py2-in-docker.sh tests/py2/test_shim_server.py -v                 # a single Py2 file
 ```
+
+The Py2 tests stub the `naoqi` SDK, so they need no robot. What still needs hardware is NAOqi behaviour itself: that `ALProxy` connects, that `ALModule.autoBind` registers `processRemote`, and the broker reverse path.
 
 The scripted integration test `tests/test_motion.py` requires a running shim and a real or simulated robot.
 
