@@ -1,29 +1,13 @@
 """Adapter base classes and the @stub decorator.
 
-GenericAdapter wraps a qibullet `PepperVirtual` and dispatches NAOqi-shaped
-method calls. Methods that exist on `pepper` fall through via `__getattr__`
-(overrides defined on subclasses take precedence). Unknown methods raise
-AttributeError, which the dispatcher surfaces as HTTP 500.
-
-StubAdapter is for whole-module no-ops (modules where qibullet has no
-analogue at all). Every method returns the declared default (or a
-per-method override), tagged with `_sim_stub = True` so the dispatcher can
-set the `X-Sim-Stub` response header.
-
-@stub marks individual methods on modeled adapters as sim no-ops without
-making the whole adapter a StubAdapter.
+GenericAdapter forwards to a qibullet `PepperVirtual` (unknown methods raise AttributeError), StubAdapter no-ops a module, @stub no-ops a method, and every stub carries `_sim_stub = True` for the `X-Sim-Stub` header.
 """
 
 import functools
 
 
-def stub(default=None):
-    """Mark a method as a sim stub.
-
-    Sets `_sim_stub = True` on the wrapper so the dispatcher can flag the
-    response. The `default` argument is documentation only; pass it to
-    record the intended return value at the decoration site.
-    """
+def stub():
+    """Mark a method as a sim stub via `_sim_stub = True`; the body is the return value."""
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -33,7 +17,16 @@ def stub(default=None):
     return decorator
 
 
-class GenericAdapter:
+class _PostDispatch:
+    """NAOqi `post` dispatch shared by both adapter kinds."""
+
+    def post(self, target_method, *args, **kwargs):
+        """Run the target synchronously and return its task ID."""
+        target = getattr(self, target_method)
+        return self._tasks.submit_sync(target, args, kwargs)
+
+
+class GenericAdapter(_PostDispatch):
     """Wraps qibullet's PepperVirtual. Subclasses add overrides and stubs."""
 
     _BLOCKED_NAMES = frozenset({"loadRobot"})
@@ -42,14 +35,8 @@ class GenericAdapter:
         self._pepper = pepper
         self._tasks = task_registry
 
-    def post(self, target_method, *args, **kwargs):
-        """NAOqi `post` dispatch. Runs target synchronously, returns task ID."""
-        target = getattr(self, target_method)
-        return self._tasks.submit_sync(target, args, kwargs)
-
     def __getattr__(self, name):
-        # __getattr__ runs only when normal lookup fails, so overrides
-        # defined on subclasses are reached first.
+        # Runs only when normal lookup fails, so subclass overrides are reached first.
         if name.startswith("_"):
             raise AttributeError("{!r} is private".format(name))
         if name in self._BLOCKED_NAMES:
@@ -59,22 +46,13 @@ class GenericAdapter:
         return getattr(self._pepper, name)
 
 
-class StubAdapter:
-    """For modules where every method is a no-op in sim.
-
-    `default` is the return value for any method not in `overrides`.
-    `overrides` maps method name -> return value for methods that need a
-    specific non-default response.
-    """
+class StubAdapter(_PostDispatch):
+    """No-ops a whole module: every method returns `overrides[name]` if present, else `default`."""
 
     def __init__(self, default=None, overrides=None, task_registry=None):
         self._default = default
         self._overrides = overrides or {}
         self._tasks = task_registry
-
-    def post(self, target_method, *args, **kwargs):
-        target = getattr(self, target_method)
-        return self._tasks.submit_sync(target, args, kwargs)
 
     def __getattr__(self, name):
         if name.startswith("_"):
