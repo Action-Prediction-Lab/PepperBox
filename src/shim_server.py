@@ -1,50 +1,12 @@
-"""Sim shim HTTP entry point. Wire-compatible with the real-robot shim at
-`py3-naoqi-bridge/shim_server.py`.
+"""Sim shim HTTP entry point, wire-compatible with `py3-naoqi-bridge/shim_server.py`.
 
-The `create_app` factory takes a module-adapter dict so tests can supply
-mocked adapters without launching qibullet. The `__main__` block wires up
-the real driver, task registry, and joint publisher."""
+`create_app` takes a module-adapter dict so tests can mock without qibullet; `__main__` wires the real driver, task registry and joint publisher."""
 
 import os
 import sys
-import threading
-import struct
-import time
-import zmq
 from flask import Flask, request, jsonify
 from dispatcher import Dispatcher
 
-class JointPublisher(threading.Thread):
-    """50Hz PUB of HeadYaw/HeadPitch on :5560 topic 'joints', wire-compatible
-    with py3-naoqi-bridge/state_service.py."""
-
-    def __init__(self, pepper, rate_hz=50.0, port=5560):
-        super(JointPublisher, self).__init__()
-        self.pepper = pepper
-        self.dt = 1.0 / rate_hz
-        self.port = port
-        self.daemon = True
-
-    def run(self):
-        ctx = zmq.Context()
-        sock = ctx.socket(zmq.PUB)
-        sock.bind("tcp://*:{}".format(self.port))
-        print("[JointPublisher] Bound ZMQ PUB on tcp://*:{}".format(self.port))
-        while True:
-            loop_start = time.time()
-            try:
-                angles = self.pepper.getAnglesPosition(["HeadYaw", "HeadPitch"])
-                if angles and len(angles) == 2:
-                    payload = struct.pack("dff", loop_start, angles[0], angles[1])
-                    sock.send_multipart([b"joints", payload])
-            except Exception as e:
-                sys.stderr.write("[JointPublisher] Error: {}\n".format(e))
-            elapsed = time.time() - loop_start
-            if elapsed < self.dt:
-                time.sleep(self.dt - elapsed)
-
-
-# --- Flask app factory ---
 
 def create_app(module_adapters):
     """Build the Flask app around a pre-built module-adapter dict."""
@@ -82,15 +44,24 @@ def create_app(module_adapters):
     return app
 
 
-# --- main: spin up qibullet, build adapters, start app ---
-
 if __name__ == "__main__":
+    import signal
+
     from driver import QiBulletDriver
     from post_tasks import TaskRegistry
     from adapters import build_module_adapters
+    from joint_publisher import JointPublisher
 
     _gui = os.environ.get("QIBULLET_GUI", "false").lower() in ("1", "true", "yes")
     driver = QiBulletDriver(gui=_gui)
+
+    def _shutdown(signum, _frame):
+        print("[ShimServer] Signal {}; stopping simulation.".format(signum))
+        driver.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
     task_registry = TaskRegistry()
     module_adapters = build_module_adapters(driver.pepper, task_registry)
 
