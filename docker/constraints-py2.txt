@@ -1,0 +1,13 @@
+# Python 2 package versions of the pepper-box image, from the pip freeze of v2.3.1.
+certifi==2021.10.8
+chardet==4.0.0
+click==7.1.2
+Flask==1.1.4
+idna==2.10
+itsdangerous==1.1.0
+Jinja2==2.11.3
+MarkupSafe==1.1.1
+pyzmq==19.0.2
+requests==2.27.1
+urllib3==1.26.20
+Werkzeug==1.0.1

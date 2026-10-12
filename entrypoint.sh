@@ -61,5 +61,7 @@ EOF
     fi
 
     python2 py3-naoqi-bridge/video_streamer.py &
+    # Restart the event publisher whenever it exits.
+    (while true; do python2 py3-naoqi-bridge/event_publisher.py; sleep 2; done) &
     python2 py3-naoqi-bridge/shim_server.py
 fi

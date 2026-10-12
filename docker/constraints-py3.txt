@@ -1,0 +1,14 @@
+# Python 3 package versions of the pepper-box image, from the pip freeze of v2.3.1.
+blinker==1.8.2
+click==8.1.8
+flask==3.0.3
+importlib-metadata==8.5.0
+itsdangerous==2.2.0
+jinja2==3.1.6
+MarkupSafe==2.1.5
+numpy==1.24.4
+pybullet==3.2.7
+pyzmq==27.1.0
+qibullet==1.4.6
+werkzeug==3.0.6
+zipp==3.20.2
