@@ -76,6 +76,8 @@ We ship two ZMQ subscribers alongside the client for low-latency data streaming:
 - `clients.vision_client.VisionClient`: greyscale QVGA video on port `5559` (currently physical only).
 - `clients.state_client.StateClient`: head joints (full body on the roadmap) at 50 Hz on port `5560`, with time-interpolated lookup (both robot and sim).
 
+When `NAOQI_IP` points at a NAOqi, the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
+
 ## Physical robot setup
 
 You will need to install the SoftBank Robotics pynaoqi SDK once. PepperBox cannot ship it for legal reasons, but our `setup.sh` script fetches it directly from Aldebaran's CDN for you, with a Wayback Machine fallback, and verifies the SHA256. 

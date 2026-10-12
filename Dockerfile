@@ -57,6 +57,9 @@ RUN mkdir .qibullet
 # Copy Bridge Code
 COPY --chown=pepperdev:pepperdev py3-naoqi-bridge /home/pepperdev/py3-naoqi-bridge
 
+# Copy Config
+COPY --chown=pepperdev:pepperdev config /home/pepperdev/config
+
 # Copy Simulation Code
 COPY --chown=pepperdev:pepperdev src /home/pepperdev/src
 
