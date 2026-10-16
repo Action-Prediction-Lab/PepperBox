@@ -1,0 +1,26 @@
+{
+  "lead_s": 0.08,
+  "wait_limit_s": 6.0,
+  "acquire_timeout_s": 2.0,
+  "poll_interval_s": 0.01,
+  "gesture_speed_mm_s": 296.0,
+  "retract_min_s": 0.6,
+  "retract_max_s": 2.0,
+  "default_duration_s": 2.0,
+  "check_wait_s": 2.0,
+  "check_interval_s": 30.0,
+  "rest_pose": {
+    "LShoulderPitch": 1.5999,
+    "LShoulderRoll": 0.0859,
+    "LElbowYaw": -1.4354,
+    "LElbowRoll": -0.1958,
+    "LWristYaw": -0.3757,
+    "LHand": 0.5049,
+    "RShoulderPitch": 1.6116,
+    "RShoulderRoll": -0.0803,
+    "RElbowYaw": 1.4869,
+    "RElbowRoll": 0.2067,
+    "RWristYaw": 0.3623,
+    "RHand": 0.5295
+  }
+}

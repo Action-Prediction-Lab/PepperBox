@@ -76,7 +76,17 @@ We ship two ZMQ subscribers alongside the client for low-latency data streaming:
 - `clients.vision_client.VisionClient`: greyscale QVGA video on port `5559` (currently physical only).
 - `clients.state_client.StateClient`: head joints (full body on the roadmap) at 50 Hz on port `5560`, with time-interpolated lookup (both robot and sim).
 
-When `NAOQI_IP` points at a NAOqi, the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
+In robot mode (`NAOQI_IP` other than `127.0.0.1` or `localhost`), the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
+
+### Gesture switch
+
+In robot mode, the bridge also registers the NAOqi service `GestureSwitch`. This service stops and starts Pepper's gestures during animated speech:
+
+- `^pCall(GestureSwitch.off())` in the text stops the gestures.
+- `^pCall(GestureSwitch.on())` in the text starts them again.
+- `GestureSwitch.off_now()`, called through the shim before a reply, stops the gestures before the reply starts.
+
+NAOqi must connect to the host to run a `^pCall` instruction. If NAOqi cannot connect, it skips the instruction and shows no error. The ALMemory key `GestureSwitch/Reachable` shows if NAOqi can connect. If the robot connects to the host through a different address, set `NAOQI_CALLBACK_IP` to that address, for example `172.17.0.1` for a simulator in Docker. `config/gesture_switch.json` contains the timing values and the rest pose. `config/animation_durations.json` contains the animation lengths. To change the values, mount your own files over them.
 
 ## Physical robot setup
 
