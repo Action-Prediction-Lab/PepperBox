@@ -39,6 +39,7 @@ class _FakeProxy(object):
         return list(args)
 
     def boom(self, *args):
+        self.calls.append(("boom", args))
         raise RuntimeError("naoqi exploded")
 
 
@@ -86,6 +87,16 @@ class TestProxyCache(ShimTestCase):
         first = shim_server.get_proxy("ALMotion")
         second = shim_server.get_proxy("ALMotion")
         self.assertIs(first, second)
+
+    def test_a_failed_call_drops_the_cached_proxy(self):
+        """A failed call removes the proxy from the cache."""
+        self.post({"module": "ALMotion", "method": "boom"})
+        self.assertNotIn("ALMotion", shim_server.PROXY_CACHE)
+
+    def test_a_failed_call_is_not_retried(self):
+        """The shim does not retry a failed call."""
+        self.post({"module": "ALMotion", "method": "boom"})
+        self.assertEqual([name for name, _ in self.proxy.calls], ["boom"])
 
 
 class TestRoute(ShimTestCase):
