@@ -78,6 +78,8 @@ We ship two ZMQ subscribers alongside the client for low-latency data streaming:
 
 In robot mode (`NAOQI_IP` other than `127.0.0.1` or `localhost`), the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
 
+The bridge also reads ALMotion every 20 ms, or as often as the link to the robot allows, and publishes the task list (topic `ALMotion.getTaskList`) and the joint angles (topic `ALMotion.getAngles`, with the joint names and `useSensors`) each time they change, and again once a second when they stay the same. Each message carries its poll time `t`. The task list shows which motion tasks run, for example `angleInterpolationBezier` for an animation. `config/motion_poll.json` sets the interval (`poll_interval_s`), the decimal places of the angles (`ndigits`) and the `getAngles` arguments; the default reads the sensed angles of the `Body` chain to 3 decimal places. Remove `getAngles` to publish the task list only. The event publisher needs this file: without it, or with invalid JSON, it stops and tries again every 2 s.
+
 ### Gesture switch
 
 In robot mode, the bridge also registers the NAOqi service `GestureSwitch`. This service stops and starts Pepper's gestures during animated speech:

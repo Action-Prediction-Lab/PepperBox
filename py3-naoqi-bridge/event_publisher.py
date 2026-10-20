@@ -1,5 +1,5 @@
 # py3-naoqi-bridge/event_publisher.py (Python 2)
-"""NAOqi behaviour signals and ALMemory events -> ZMQ PUB :5565, with a heartbeat each time the robot answers a ping."""
+"""NAOqi behaviour signals, ALMemory events and polled ALMotion task lists and joint angles -> ZMQ PUB :5565, with a heartbeat each time the robot answers a ping."""
 from __future__ import print_function
 import fnmatch
 import json
@@ -15,6 +15,7 @@ EVENT_PUB_PORT = 5565
 HEARTBEAT_S = 1.0
 BEHAVIOR_SIGNALS = ("behaviorStarted", "behaviorStopped")
 EVENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "events.txt")
+MOTION_POLL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "motion_poll.json")
 
 
 def read_patterns(path):
@@ -22,6 +23,15 @@ def read_patterns(path):
     with open(path) as f:
         lines = [line.strip() for line in f]
     return [line for line in lines if line and not line.startswith("#")]
+
+
+def read_motion_poll(path):
+    """The ALMotion polling settings from the config file; raises ValueError when getAngles comes without ndigits."""
+    with open(path) as f:
+        config = json.load(f)
+    if "getAngles" in config and "ndigits" not in config:
+        raise ValueError("%s: getAngles needs ndigits" % path)
+    return config
 
 
 def matches(name, patterns):
@@ -140,14 +150,61 @@ class HeartbeatThread(threading.Thread):
             self._stop.wait(self._heartbeat_s)
 
 
-def start(session, started, patterns, port=EVENT_PUB_PORT, heartbeat_s=HEARTBEAT_S):
-    """Connect the robot's signals and events, then start publishing and pinging; returns the two threads and the subscribers to keep alive."""
+class MotionPollThread(threading.Thread):
+    """Polls ALMotion every poll_interval_s and enqueues its task list and, when the config has getAngles, its joint angles rounded to ndigits, each when it changes and again every heartbeat_s."""
+
+    def __init__(self, motion, publisher, config, heartbeat_s=HEARTBEAT_S):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._motion = motion
+        self._publisher = publisher
+        self._poll_interval_s = config["poll_interval_s"]
+        self._heartbeat_s = heartbeat_s
+        self._angles = config.get("getAngles")
+        self._ndigits = config["ndigits"] if self._angles else None
+        self._names = motion.getBodyNames(self._angles["names"]) if self._angles else None
+        self._sent = {}
+        self._stop = threading.Event()
+
+    def stop(self):
+        self._stop.set()
+
+    def _publish(self, topic, value):
+        """Enqueue value on topic when it differs from the last value sent there or heartbeat_s has passed since."""
+        now = time.time()
+        last = self._sent.get(topic)
+        if last is None or last[0] != value or now - last[1] >= self._heartbeat_s:
+            self._publisher.enqueue(event_message(topic, value, now))
+            self._sent[topic] = (value, now)
+
+    def _poll(self):
+        self._publish("ALMotion.getTaskList", self._motion.getTaskList())
+        if self._angles:
+            angles = [round(a, self._ndigits) for a in self._motion.getAngles(self._names, self._angles["useSensors"])]
+            self._publish("ALMotion.getAngles", {"names": self._names, "useSensors": self._angles["useSensors"], "angles": angles})
+
+    def run(self):
+        due = time.time()
+        while not self._stop.is_set():
+            try:
+                self._poll()
+            except Exception as e:
+                sys.stderr.write("event_publisher: ALMotion poll failed: %s\n" % e)
+            due = max(due + self._poll_interval_s, time.time())
+            self._stop.wait(due - time.time())
+
+
+def start(session, started, patterns, motion_poll=None, port=EVENT_PUB_PORT, heartbeat_s=HEARTBEAT_S):
+    """Connect the robot's signals and events, then start publishing, pinging and, with motion_poll, polling ALMotion; returns the three threads (the poller None without motion_poll) and the subscribers to keep alive."""
     publisher = PublisherThread(port=port)
     subscribers = connect(session, publisher, patterns)
     heartbeat = HeartbeatThread(session.service("ALMemory"), publisher, started, heartbeat_s)
+    poller = MotionPollThread(session.service("ALMotion"), publisher, motion_poll, heartbeat_s) if motion_poll else None
     publisher.start()
     heartbeat.start()
-    return publisher, heartbeat, subscribers
+    if poller:
+        poller.start()
+    return publisher, heartbeat, poller, subscribers
 
 
 def main():
@@ -159,8 +216,9 @@ def main():
 
     try:
         patterns = read_patterns(EVENTS_FILE)
-    except IOError as e:
-        sys.stderr.write("event_publisher: cannot read %s: %s\n" % (EVENTS_FILE, e))
+        motion_poll = read_motion_poll(MOTION_POLL_FILE)
+    except (IOError, ValueError) as e:
+        sys.stderr.write("event_publisher: cannot read the config: %s\n" % e)
         return 5
 
     naoqi_ip = os.environ.get("NAOQI_IP", "127.0.0.1")
@@ -175,7 +233,7 @@ def main():
     session = app.session
     dropped = threading.Event()
     session.disconnected.connect(lambda reason: dropped.set())
-    publisher, heartbeat, kept = start(session, started=time.time(), patterns=patterns)
+    publisher, heartbeat, poller, kept = start(session, started=time.time(), patterns=patterns, motion_poll=motion_poll)
     sys.stderr.write("event_publisher: publishing on :%d from %s:%d\n" % (EVENT_PUB_PORT, naoqi_ip, naoqi_port))
 
     try:
@@ -187,9 +245,14 @@ def main():
         return 0
     finally:
         heartbeat.stop()
+        if poller:
+            poller.stop()
         publisher.stop()
         publisher.join(timeout=2.0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)

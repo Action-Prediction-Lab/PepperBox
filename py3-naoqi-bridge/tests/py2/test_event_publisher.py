@@ -9,7 +9,7 @@ import unittest
 
 import zmq
 
-from event_publisher import HeartbeatThread, PublisherThread, connect, event_message, read_patterns, start
+from event_publisher import MOTION_POLL_FILE, HeartbeatThread, MotionPollThread, PublisherThread, connect, event_message, read_motion_poll, read_patterns, start
 
 
 class FakeSignal(object):
@@ -227,11 +227,142 @@ class HeartbeatTests(unittest.TestCase):
         self.assertEqual(len(messages), memory.log.count("ping") - 1)
 
 
+class FakeMotion(object):
+    """Fake ALMotion whose task lists and angles follow scripts, repeating the last entry; it raises a script entry that is an exception."""
+
+    def __init__(self, tasks, angles=None):
+        self.tasks = list(tasks)
+        self.angles = list(angles or [[0.0, 0.0]])
+        self.calls = []
+
+    def _next(self, script):
+        value = script.pop(0) if len(script) > 1 else script[0]
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def getBodyNames(self, names):
+        self.calls.append(("getBodyNames", names))
+        return ["HeadYaw", "HeadPitch"]
+
+    def getTaskList(self):
+        self.calls.append(("getTaskList",))
+        return self._next(self.tasks)
+
+    def getAngles(self, names, use_sensors):
+        self.calls.append(("getAngles", list(names), use_sensors))
+        return self._next(self.angles)
+
+
+POLLING = {"poll_interval_s": 0.005, "ndigits": 3, "getAngles": {"names": "Body", "useSensors": True}}
+
+
+class TimedMotion(object):
+    """Fake ALMotion whose task list changes on every read; records when each read starts."""
+
+    def __init__(self):
+        self.reads = []
+
+    def getTaskList(self):
+        self.reads.append(time.time())
+        return [["Idle", len(self.reads)]]
+
+
+class SlowFirstMotion(object):
+    """Fake ALMotion whose first task list read takes 0.1 s; records when each read starts."""
+
+    def __init__(self):
+        self.reads = []
+
+    def getTaskList(self):
+        self.reads.append(time.time())
+        if len(self.reads) == 1:
+            time.sleep(0.1)
+        return []
+
+
+class MotionPollTests(unittest.TestCase):
+    def run_poller(self, motion, config=POLLING, seconds=0.15, heartbeat_s=1.0):
+        """Run a poll thread against motion for a while and return what it enqueued."""
+        publisher = RecordingPublisher()
+        thread = MotionPollThread(motion, publisher, config, heartbeat_s)
+        thread.start()
+        time.sleep(seconds)
+        thread.stop()
+        thread.join(timeout=1.0)
+        return publisher
+
+    def test_the_task_list_is_published_each_time_it_changes(self):
+        """The poller does not publish a task list equal to the previous one again within a heartbeat."""
+        animation = ["angleInterpolationBezier", 7]
+        motion = FakeMotion(tasks=[[], [animation], [animation], [animation, ["LookAt", 8]], []])
+        sent = [value for topic, value in self.run_poller(motion).sent() if topic == "ALMotion.getTaskList"]
+        self.assertEqual(sent, [[], [animation], [animation, ["LookAt", 8]], []])
+
+    def test_angles_are_published_rounded_with_the_joint_names_when_they_change(self):
+        """The poller reads the angles of the configured names and sensors, rounds them, and publishes them only when a rounded angle changes."""
+        motion = FakeMotion(tasks=[[]], angles=[[0.12341, 1.0], [0.12344, 1.0], [0.1250, 1.0]])
+        sent = [value for topic, value in self.run_poller(motion).sent() if topic == "ALMotion.getAngles"]
+        self.assertEqual(sent, [{"names": ["HeadYaw", "HeadPitch"], "useSensors": True, "angles": [0.123, 1.0]},
+                                {"names": ["HeadYaw", "HeadPitch"], "useSensors": True, "angles": [0.125, 1.0]}])
+        self.assertIn(("getBodyNames", "Body"), motion.calls)
+        self.assertIn(("getAngles", ["HeadYaw", "HeadPitch"], True), motion.calls)
+
+    def test_without_getangles_in_the_config_only_the_task_list_is_polled(self):
+        motion = FakeMotion(tasks=[[["angleInterpolationBezier", 7]]])
+        publisher = self.run_poller(motion, config={"poll_interval_s": 0.005})
+        self.assertEqual([topic for topic, _ in publisher.sent()], ["ALMotion.getTaskList"])
+        self.assertEqual([call for call in motion.calls if call[0] != "getTaskList"], [])
+
+    def test_unchanged_state_is_published_again_every_heartbeat(self):
+        """A subscriber that joins after the last change gets the task list and angles within a heartbeat."""
+        motion = FakeMotion(tasks=[[["Idle", 3]]], angles=[[0.1, 0.2]])
+        topics = [topic for topic, _ in self.run_poller(motion, seconds=0.2, heartbeat_s=0.04).sent()]
+        self.assertGreaterEqual(topics.count("ALMotion.getTaskList"), 4)
+        self.assertGreaterEqual(topics.count("ALMotion.getAngles"), 4)
+
+    def test_a_failed_poll_is_skipped_and_polling_goes_on(self):
+        """A poll that raises publishes nothing, and the next poll publishes again."""
+        motion = FakeMotion(tasks=[RuntimeError("no route to robot"), [["angleInterpolationBezier", 7]]])
+        sent = [value for topic, value in self.run_poller(motion).sent() if topic == "ALMotion.getTaskList"]
+        self.assertEqual(sent, [[["angleInterpolationBezier", 7]]])
+
+    def test_each_message_carries_its_poll_time(self):
+        """The poller publishes a task list that changes on every read once per poll and stamps each message within 10 ms of its read."""
+        motion = TimedMotion()
+        messages = [payload for topic, payload in self.run_poller(motion, config={"poll_interval_s": 0.01}).messages if topic == "ALMotion.getTaskList"]
+        self.assertGreater(len(messages), 5)
+        for read, payload in zip(motion.reads, messages):
+            self.assertTrue(read <= payload["t"] <= read + 0.01)
+
+    def test_getangles_without_ndigits_is_refused(self):
+        path = os.path.join(tempfile.mkdtemp(), "motion_poll.json")
+        with open(path, "w") as f:
+            json.dump({"poll_interval_s": 0.02, "getAngles": {"names": "Body", "useSensors": True}}, f)
+        with self.assertRaises(ValueError):
+            read_motion_poll(path)
+
+    def test_after_a_slow_poll_the_schedule_restarts_from_now(self):
+        """After a poll that overruns its interval, the poller polls again at once and then at the normal interval, with no burst of catch-up polls."""
+        motion = SlowFirstMotion()
+        self.run_poller(motion, config={"poll_interval_s": 0.01}, seconds=0.25)
+        gaps = [b - a for a, b in zip(motion.reads[1:], motion.reads[2:])]
+        self.assertGreater(len(gaps), 5)
+        self.assertLessEqual(sum(1 for gap in gaps if gap < 0.003), 1)
+
+    def test_the_shipped_config_gives_every_setting_the_poller_reads(self):
+        config = read_motion_poll(MOTION_POLL_FILE)
+        self.assertEqual(sorted(config), ["getAngles", "ndigits", "poll_interval_s"])
+        self.assertGreater(config["poll_interval_s"], 0)
+        self.assertIsInstance(config["ndigits"], int)
+        self.assertEqual(sorted(config["getAngles"]), ["names", "useSensors"])
+
+
 class StartTests(unittest.TestCase):
     def test_the_robot_is_pinged_only_after_its_signals_and_events_are_connected(self):
         """The first ping comes after the last signal or event is connected, so a heartbeat always means events can arrive."""
         session = FakeSession(events=["ALTextToSpeech/TextStarted", "ALTextToSpeech/TextDone"])
-        publisher, heartbeat, _ = start(session, started=1.0, patterns=["*"], port=15566, heartbeat_s=0.01)
+        publisher, heartbeat, _, _ = start(session, started=1.0, patterns=["*"], port=15566, heartbeat_s=0.01)
         try:
             time.sleep(0.1)
         finally:

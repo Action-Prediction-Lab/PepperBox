@@ -1,0 +1,5 @@
+{
+  "poll_interval_s": 0.02,
+  "ndigits": 3,
+  "getAngles": {"names": "Body", "useSensors": true}
+}
