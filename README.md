@@ -88,7 +88,18 @@ In robot mode, the bridge also registers the NAOqi service `GestureSwitch`. This
 - `^pCall(GestureSwitch.on())` in the text starts them again.
 - `GestureSwitch.off_now()`, called through the shim before a reply, stops the gestures before the reply starts.
 
-NAOqi must connect to the host to run a `^pCall` instruction. If NAOqi cannot connect, it skips the instruction and shows no error. The ALMemory key `GestureSwitch/Reachable` shows if NAOqi can connect. If the robot connects to the host through a different address, set `NAOQI_CALLBACK_IP` to that address, for example `172.17.0.1` for a simulator in Docker. `config/gesture_switch.json` contains the timing values and the rest pose. `config/animation_durations.json` contains the animation lengths. To change the values, mount your own files over them.
+From `off` or `off_now` until `on`, the switch stops every new animation, head movements included, and leaves head tracking alone. After `off`, the animations running at `off` finish; when they end within `wait_limit_s`, arm breathing starts at once, and the switch takes the arms and moves them to the rest pose at gesture speed. The behaviour of an animation NAOqi started after them can hold the arms after the switch has stopped its motion, so the switch keeps trying to take them until `wait_limit_s`; if it has not taken them by then, it leaves the arms free and still stops new animations until `on`. `off_now` starts arm breathing and tries once to take the arms, and leaves them where they are. `on` frees the arms and stops a move to the rest pose that is still under way. When the container stops, the switch frees the arms before it exits.
+
+The switch declares these ALMemory events when it starts and raises them:
+
+- `GestureSwitch/OffRequested`: the ids of the animation tasks running at `off`, or null when the switch cannot read ALMotion.
+- `GestureSwitch/ArmsTaken`: the seconds from `off` until the switch took the arms, or 0 from `off_now`.
+- `GestureSwitch/Retracted`: the seconds the move to the rest pose took, or null when ALMotion did not complete it.
+- `GestureSwitch/On`.
+- `GestureSwitch/OffCancelled` and `GestureSwitch/OffTimedOut`: the seconds `off` waited before `on` came or before `wait_limit_s` ran out.
+- `GestureSwitch/TaskKilled`: the id of each animation task the switch stops.
+
+NAOqi must connect to the host to run a `^pCall` instruction. If NAOqi cannot connect, it skips the instruction and shows no error. The switch checks every `check_interval_s` until NAOqi reaches it once, then stops checking; the ALMemory key `GestureSwitch/Reachable` becomes true at that first success. If the robot connects to the host through a different address, set `NAOQI_CALLBACK_IP` to that address, for example `172.17.0.1` for a simulator in Docker; the audio publisher uses the same address. `config/gesture_switch.json` contains the timing values and the rest pose. To change the values, mount your own file over it.
 
 ### Safety reflexes
 

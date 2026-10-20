@@ -1,12 +1,10 @@
 {
-  "lead_s": 0.08,
   "wait_limit_s": 6.0,
   "acquire_timeout_s": 2.0,
   "poll_interval_s": 0.01,
   "gesture_speed_mm_s": 296.0,
   "retract_min_s": 0.6,
   "retract_max_s": 2.0,
-  "default_duration_s": 2.0,
   "check_wait_s": 2.0,
   "check_interval_s": 30.0,
   "rest_pose": {
