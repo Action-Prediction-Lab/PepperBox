@@ -88,6 +88,10 @@ In robot mode, the bridge also registers the NAOqi service `GestureSwitch`. This
 
 NAOqi must connect to the host to run a `^pCall` instruction. If NAOqi cannot connect, it skips the instruction and shows no error. The ALMemory key `GestureSwitch/Reachable` shows if NAOqi can connect. If the robot connects to the host through a different address, set `NAOQI_CALLBACK_IP` to that address, for example `172.17.0.1` for a simulator in Docker. `config/gesture_switch.json` contains the timing values and the rest pose. `config/animation_durations.json` contains the animation lengths. To change the values, mount your own files over them.
 
+### Safety reflexes
+
+In robot mode the bridge also applies NAOqi's safety reflex settings from `config/safety_reflexes.json`: `ExternalCollisionProtection` with a chain name and true or false, for example `"ExternalCollisionProtection": {"Arms": false}`, beside `poll_interval_s` and `wait_limit_s`. It reads each setting back every `poll_interval_s` until two reads in a row return the set value, for at most `wait_limit_s` per chain, and it applies the settings again after each reconnection to NAOqi. When the container stops, it switches back on every protection it switched off. If NAOqi refuses a setting or a setting never reads back, the bridge logs the error and switches back on every protection it switched off, and it tries again after the next reconnection. The default keeps the arm protection on. NAOqi refuses to switch off the `Move` protection unless the robot allows it.
+
 ## Physical robot setup
 
 You will need to install the SoftBank Robotics pynaoqi SDK once. PepperBox cannot ship it for legal reasons, but our `setup.sh` script fetches it directly from Aldebaran's CDN for you, with a Wayback Machine fallback, and verifies the SHA256. 

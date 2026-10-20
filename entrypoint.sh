@@ -60,10 +60,19 @@ EOF
         exit 1
     fi
 
+    # A no-op trap lets SIGTERM and SIGINT end the wait for the shim below, so this shell can stop the rest.
+    trap : TERM INT
     python2 py3-naoqi-bridge/video_streamer.py &
-    # Restart the event publisher whenever it exits.
-    (while true; do python2 py3-naoqi-bridge/event_publisher.py; sleep 2; done) &
-    # Restart the gesture switch whenever it exits.
-    (while true; do python2 py3-naoqi-bridge/gesture_switch.py; sleep 2; done) &
-    python2 py3-naoqi-bridge/shim_server.py
+    # Each loop restarts its service when it exits and ends on SIGTERM.
+    (trap exit TERM; while true; do python2 py3-naoqi-bridge/event_publisher.py; sleep 2; done) &
+    (trap exit TERM; while true; do python2 py3-naoqi-bridge/gesture_switch.py; sleep 2; done) &
+    (trap exit TERM; while true; do python2 py3-naoqi-bridge/safety_reflexes.py; sleep 2; done) &
+    python2 py3-naoqi-bridge/shim_server.py &
+    wait $!
+    status=$?
+    # On a container stop or a shim exit, send SIGTERM to this whole process group and wait for it.
+    trap '' TERM INT
+    kill -TERM 0
+    wait
+    exit $status
 fi
