@@ -76,7 +76,34 @@ We ship two ZMQ subscribers alongside the client for low-latency data streaming:
 - `clients.vision_client.VisionClient`: greyscale QVGA video on port `5559` (currently physical only).
 - `clients.state_client.StateClient`: head joints (full body on the roadmap) at 50 Hz on port `5560`, with time-interpolated lookup (both robot and sim).
 
-When `NAOQI_IP` points at a NAOqi, the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
+In robot mode (`NAOQI_IP` other than `127.0.0.1` or `localhost`), the bridge also publishes on port `5565` a message whenever a behaviour, such as an animation, starts or stops, and whenever NAOqi raises an ALMemory event listed in `config/events.txt`. Each message has the NAOqi name as its topic and `{"t", "value"}` as its payload, and a `heartbeat` goes out once a second. List one event name or `fnmatch` pattern per line in `config/events.txt`; the default `*` covers every event, and you can mount your own file over it.
+
+The bridge also reads ALMotion every 20 ms, or as often as the link to the robot allows, and publishes the task list (topic `ALMotion.getTaskList`) and the joint angles (topic `ALMotion.getAngles`, with the joint names and `useSensors`) each time they change, and again once a second when they stay the same. Each message carries its poll time `t`. The task list shows which motion tasks run, for example `angleInterpolationBezier` for an animation. `config/motion_poll.json` sets the interval (`poll_interval_s`), the decimal places of the angles (`ndigits`) and the `getAngles` arguments; the default reads the sensed angles of the `Body` chain to 3 decimal places. Remove `getAngles` to publish the task list only. The event publisher needs this file: without it, or with invalid JSON, it stops and tries again every 2 s.
+
+### Gesture switch
+
+In robot mode, the bridge also registers the NAOqi service `GestureSwitch`. This service stops and starts Pepper's gestures during animated speech:
+
+- `^pCall(GestureSwitch.off())` in the text stops the gestures.
+- `^pCall(GestureSwitch.on())` in the text starts them again.
+- `GestureSwitch.off_now()`, called through the shim before a reply, stops the gestures before the reply starts.
+
+From `off` or `off_now` until `on`, the switch stops every new animation, head movements included, and leaves head tracking alone. After `off`, the animations running at `off` finish; when they end within `wait_limit_s`, arm breathing starts at once, and the switch takes the arms and moves them to the rest pose at gesture speed. The behaviour of an animation NAOqi started after them can hold the arms after the switch has stopped its motion, so the switch keeps trying to take them until `wait_limit_s`; if it has not taken them by then, it leaves the arms free and still stops new animations until `on`. `off_now` starts arm breathing and tries once to take the arms, and leaves them where they are. `on` frees the arms and stops a move to the rest pose that is still under way. When the container stops, the switch frees the arms before it exits.
+
+The switch declares these ALMemory events when it starts and raises them:
+
+- `GestureSwitch/OffRequested`: the ids of the animation tasks running at `off`, or null when the switch cannot read ALMotion.
+- `GestureSwitch/ArmsTaken`: the seconds from `off` until the switch took the arms, or 0 from `off_now`.
+- `GestureSwitch/Retracted`: the seconds the move to the rest pose took, or null when ALMotion did not complete it.
+- `GestureSwitch/On`.
+- `GestureSwitch/OffCancelled` and `GestureSwitch/OffTimedOut`: the seconds `off` waited before `on` came or before `wait_limit_s` ran out.
+- `GestureSwitch/TaskKilled`: the id of each animation task the switch stops.
+
+NAOqi must connect to the host to run a `^pCall` instruction. If NAOqi cannot connect, it skips the instruction and shows no error. The switch checks every `check_interval_s` until NAOqi reaches it once, then stops checking; the ALMemory key `GestureSwitch/Reachable` becomes true at that first success. If the robot connects to the host through a different address, set `NAOQI_CALLBACK_IP` to that address, for example `172.17.0.1` for a simulator in Docker; the audio publisher uses the same address. `config/gesture_switch.json` contains the timing values and the rest pose. To change the values, mount your own file over it.
+
+### Safety reflexes
+
+In robot mode the bridge also applies NAOqi's safety reflex settings from `config/safety_reflexes.json`: `ExternalCollisionProtection` with a chain name and true or false, for example `"ExternalCollisionProtection": {"Arms": false}`, beside `poll_interval_s` and `wait_limit_s`. It reads each setting back every `poll_interval_s` until two reads in a row return the set value, for at most `wait_limit_s` per chain, and it applies the settings again after each reconnection to NAOqi. When the container stops, it switches back on every protection it switched off. If NAOqi refuses a setting or a setting never reads back, the bridge logs the error and switches back on every protection it switched off, and it tries again after the next reconnection. The default keeps the arm protection on. NAOqi refuses to switch off the `Move` protection unless the robot allows it.
 
 ## Physical robot setup
 

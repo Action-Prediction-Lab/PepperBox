@@ -1,0 +1,7 @@
+{
+  "poll_interval_s": 0.5,
+  "wait_limit_s": 10.0,
+  "ExternalCollisionProtection": {
+    "Arms": true
+  }
+}

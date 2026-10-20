@@ -12,22 +12,12 @@ import time
 import Queue  # Py2
 import zmq
 
+from robot_address import callback_ip
+
 
 CHUNK_PUB_PORT = 5563
 EXPECTED_CHUNK_BYTES = 5440  # 170 ms at 16 kHz mono int16
 CALLBACK_WATCHDOG_S = 15.0
-
-
-def _resolve_bind_ip(target_ip, target_port):
-    """Local source IP for target; ALBroker on 0.0.0.0 advertises every interface and the parent broker may pick an unroutable Docker bridge."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect((target_ip, target_port))
-        return s.getsockname()[0]
-    except Exception:
-        return "0.0.0.0"
-    finally:
-        s.close()
 
 
 class PublisherThread(threading.Thread):
@@ -139,7 +129,7 @@ def main():
     publisher = PublisherThread()
     publisher.start()
 
-    bind_ip = _resolve_bind_ip(naoqi_ip, naoqi_port)
+    bind_ip = callback_ip(naoqi_ip, naoqi_port)
     sys.stderr.write("audio_publisher: broker bind_ip=%s target=%s:%d\n" % (bind_ip, naoqi_ip, naoqi_port))
 
     global PepperAudioPub

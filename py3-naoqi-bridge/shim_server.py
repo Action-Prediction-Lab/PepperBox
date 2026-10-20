@@ -101,6 +101,9 @@ def call_naoqi_method():
 
     except Exception as e:
         sys.stderr.write("Error calling {}.{}: {}\n".format(module_name, method_name, e))
+        # Drop the cached proxy so that the next request creates a new one.
+        with PROXY_LOCK:
+            PROXY_CACHE.pop(module_name, None)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
